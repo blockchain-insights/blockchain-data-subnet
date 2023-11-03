@@ -28,6 +28,35 @@ class GraphIndexer:
     # Set the precision high enough to handle satoshis for Bitcoin transactions
     getcontext().prec = 28
 
+    def create_indexes(self):
+        with self.driver.session() as session:
+            # Create indexes if they do not exist
+            session.run(
+                "CREATE INDEX IF NOT EXISTS block_number_idx FOR (b:Block) ON (b.number)"
+            )
+            session.run(
+                "CREATE INDEX IF NOT EXISTS transaction_id_idx FOR (t:Transaction) ON (t.id)"
+            )
+            session.run(
+                "CREATE INDEX IF NOT EXISTS address_idx FOR (a:Address) ON (a.address)"
+            )
+            session.run("CREATE INDEX IF NOT EXISTS vout_n_idx FOR (v:Vout) ON (v.n)")
+            session.run(
+                "CREATE INDEX IF NOT EXISTS vout_value_idx FOR (v:Vout) ON (v.value)"
+            )
+            session.run(
+                "CREATE INDEX IF NOT EXISTS coinbase_id_idx FOR (c:Coinbase) ON (c.id)"
+            )
+            session.run(
+                "CREATE INDEX IF NOT EXISTS vin_txid_vout_idx FOR (v:Vin) ON (v.txid, v.vout)"
+            )
+            session.run(
+                "CREATE INDEX IF NOT EXISTS transaction_type_id_idx FOR (t:Transaction) ON (t.type, t.id)"
+            )
+            session.run(
+                "CREATE INDEX IF NOT EXISTS vout_script_type_idx FOR (v:Vout) ON (v.script_type)"
+            )
+
     def create_transaction_graph(self, transactions):
         with self.driver.session() as session:
             for block_height, txs in transactions:

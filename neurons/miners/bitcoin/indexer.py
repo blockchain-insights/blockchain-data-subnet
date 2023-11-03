@@ -59,6 +59,7 @@ if __name__ == "__main__":
     print(f"Latest block height: {graph_indexer.get_latest_block_number()}")
 
     try:
+        graph_indexer.create_indexes()
         index_blocks(bitcoin_node, graph_indexer)
     finally:
         graph_indexer.close()
