@@ -1,6 +1,42 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: indexer
+      POSTGRES_USER: usr
+      POSTGRES_PASSWORD: pwd
+    ports:
+      - "5432:5432"
+    volumes:
+      - "postgres-data:/var/lib/postgresql/data"
+
+  migration:
+    image: postgres:latest
+    depends_on:
+      - postgres
+    volumes:
+      - "./migrations:/migrations"
+      - "./migrate.sh:/migrate.sh"
+    environment:
+      POSTGRES_DB: indexer
+      POSTGRES_USER: usr
+      POSTGRES_PASSWORD: pwd
+    #command: ["tail", "-f", "/dev/null"]
+    command: [ "sh", "-c", "export PGPASSWORD=$$POSTGRES_PASSWORD && /migrate.sh" ]
+
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
   memgraph2:
     image: memgraph/memgraph-platform
     ports:
@@ -30,6 +66,6 @@ services:
       - "bitcoin-data:/home/bitcoin/.bitcoin"
 
 volumes:
+  postgres-data:
   bitcoin-data:
   memgraph-data2:
-  portainer_data:
