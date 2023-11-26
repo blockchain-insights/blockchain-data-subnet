@@ -35,7 +35,24 @@ class MinerRegistryManager:
         self.engine = create_engine(db_path)
         Base.metadata.create_all(self.engine)
 
-    # this method will be obsolete once we have a miner registry
+    def get_miners(self, network, model_type):
+        session = sessionmaker(bind=self.engine)()
+        try:
+            miners = (
+                session.query(MinerRegistry)
+                .filter(
+                    MinerRegistry.network == network,
+                    MinerRegistry.model_type == model_type,
+                )
+                .all()
+            )
+            return miners
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            return []
+        finally:
+            session.close()
+
     def get_miner_proportion(self, network, model_type):
         session = sessionmaker(bind=self.engine)()
         try:

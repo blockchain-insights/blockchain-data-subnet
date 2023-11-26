@@ -11,3 +11,5 @@ python-dotenv
 sqlalchemy
 requests
 urllib3
+fastapi
+"uvicorn[standard]"

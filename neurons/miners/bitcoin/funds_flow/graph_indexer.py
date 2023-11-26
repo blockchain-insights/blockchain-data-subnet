@@ -1,5 +1,5 @@
 import os
-from neurons.logging import setup_logger
+from neurons.custom_logging import setup_logger
 from neo4j import GraphDatabase
 
 
