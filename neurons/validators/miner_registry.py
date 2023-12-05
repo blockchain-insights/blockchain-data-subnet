@@ -36,10 +36,8 @@ class MinerBlockRegistry(Base):
     updated = Column(DateTime, default=datetime.datetime.utcnow)
 
 class MinerRegistryManager:
-    def __init__(self, db_path="sqlite:////data/miner_registry.db"):
-        directory_path = os.path.dirname(db_path.replace("sqlite:///", ""))
-        os.makedirs(directory_path, exist_ok=True)
-        self.engine = create_engine(db_path)
+    def __init__(self):
+        self.engine = create_engine("sqlite:///miner_registry.db")
         Base.metadata.create_all(self.engine)
 
     # this method will be obsolete once we have a miner registry
