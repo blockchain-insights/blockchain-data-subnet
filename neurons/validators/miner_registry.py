@@ -37,7 +37,7 @@ class MinerBlockRegistry(Base):
 
 class MinerRegistryManager:
     def __init__(self):
-        self.engine = create_engine("sqlite:///miner_registry.db")
+        self.engine = create_engine("sqlite:///data/miner_registry.db")
         Base.metadata.create_all(self.engine)
 
     # this method will be obsolete once we have a miner registry
