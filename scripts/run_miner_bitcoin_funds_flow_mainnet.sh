@@ -36,4 +36,4 @@ if [ -z "$SUBTENSOR_CHAIN_ENDPOINT" ]; then
     export SUBTENSOR_CHAIN_ENDPOINT="ws://0.0.0.0:9944"
 fi
 
-python3 neurons/miners/miner.py --network bitcoin --model_type funds_flow --wallet.name "$WALLET_NAME" --wallet.hotkey "$WALLET_HOTKEY" --netuid 15 --subtensor.chain_endpoint "$SUBTENSOR_CHAIN_ENDPOINT" --logging.debug --logging.trace
+python3 neurons/miners/miner.py --network bitcoin --model_type funds_flow --wallet.name "$WALLET_NAME" --wallet.hotkey "$WALLET_HOTKEY" --netuid 15  --subtensor.network finney --subtensor.chain_endpoint "$SUBTENSOR_CHAIN_ENDPOINT" --logging.debug --logging.trace
