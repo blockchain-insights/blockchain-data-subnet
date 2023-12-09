@@ -36,7 +36,7 @@ class MinerBlockRegistry(Base):
     updated = Column(DateTime, default=datetime.datetime.utcnow)
 
 class MinerRegistryManager:
-    def __init__(self, db_path="sqlite:////data/miner_registry.db"):
+    def __init__(self, db_path="sqlite:///data/miner_registry.db"):
         self.engine = create_engine(db_path)
         Base.metadata.create_all(self.engine)
 
