@@ -122,6 +122,8 @@ def main(config):
         if step % 5 == 0:
             bt.logging.info(f"🔄 Syncing metagraph with subtensor.")
             metagraph.sync(subtensor = subtensor)
+            miners = MinerRegistryManager().get_miners_ordered_by_hotkey()
+            bt.logging.info(f"🔄 Miner data from local registry: {miners}")
 
         # If there are more uids than scores, add more weights.
         # Get the uids of all miners in the network.
