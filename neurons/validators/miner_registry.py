@@ -40,18 +40,6 @@ class MinerRegistryManager:
         self.engine = create_engine("sqlite:////data/miner_registry.db")
         Base.metadata.create_all(self.engine)
 
-    def get_miners_ordered_by_hotkey(self):
-        session = sessionmaker(bind=self.engine)()
-        try:
-            # Query MinerRegistry and order by hot_key
-            miners = session.query(MinerRegistry).order_by(MinerRegistry.hot_key).all()
-            return miners
-        except Exception as e:
-            print(f"Error occurred: {traceback.format_exc()}")
-            return []
-        finally:
-            session.close()
-
     # this method will be obsolete once we have a miner registry
     def get_miner_proportion(self, network, model_type):
         session = sessionmaker(bind=self.engine)()
