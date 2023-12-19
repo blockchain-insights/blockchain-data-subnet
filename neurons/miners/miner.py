@@ -35,6 +35,7 @@ from neurons.miners.query import (
 from insights.protocol import (
     MODEL_TYPE_FUNDS_FLOW,
     NETWORK_BITCOIN,
+    NETWORK_DOGE,
     MinerDiscoveryMetadata,
 )
 from neurons.remote_config import MinerConfig
@@ -124,6 +125,13 @@ def main(config):
                 else:
                     bt.logging.info(f"Graph Sync: {current_block_height}/{latest_block_height}")
                     time.sleep(bt.__blocktime__ * 12)
+            elif config.network == "doge":
+                node = get_node(config.network)
+                latest_block_height = node.get_current_block_height()
+                current_block_height = graph_indexer.get_latest_block_number()
+                if latest_block_height - current_block_height < 100:
+                    is_synced = True
+                    bt.logging.info(f"Graph model is synced with blockchain.")
             else:
                 raise Exception("Unsupported blockchain network")
         except Exception as e:
