@@ -3,7 +3,6 @@ import signal
 import time
 import traceback
 from neurons.setup_logger import setup_logger
-from neurons.nodes.bitcoin.node import BitcoinNode
 from neurons.nodes.dogecoin.node import DogecoinNode
 from neurons.miners.dogecoin.funds_flow.graph_creator import GraphCreator
 from neurons.miners.dogecoin.funds_flow.graph_indexer import GraphIndexer
@@ -136,8 +135,7 @@ if __name__ == "__main__":
 
             logger.info("Creating indexes...")
             graph_indexer.create_indexes()
-            logger.info("Starting indexing blocks...")
-            index_blocks(doge_node, graph_creator, graph_indexer, start_height)
+
             break
         except Exception as e:
             traceback.print_exc()
