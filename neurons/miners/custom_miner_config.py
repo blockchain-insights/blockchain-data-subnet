@@ -31,8 +31,3 @@ class CustomMinerConfig:
             print(f"An error occurred: {e}")
             raise
 
-# Example usage
-# config_reader = CustomMinerConfig()
-# print(config_reader.blacklisted_hotkeys)
-
-

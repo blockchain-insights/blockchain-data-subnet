@@ -78,7 +78,6 @@ def get_config():
 
 
 def main(config):
-    print("Current Working Directory:", os.getcwd())
     bt.logging(config=config, logging_dir=config.full_path)
     bt.logging.info(
         f"Running miner for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:"
