@@ -76,6 +76,7 @@ class GraphIndexer:
                     existing_index_set.add(index_name)
 
             index_creation_statements = {
+                "Block-block_height": "CREATE INDEX ON :Block(block_height);",
                 "Transaction-tx_id": "CREATE INDEX ON :Transaction(tx_id);",
                 "Transaction-block_height": "CREATE INDEX ON :Transaction(block_height);",
                 "Address-address": "CREATE INDEX ON :Address(address);",
@@ -92,64 +93,6 @@ class GraphIndexer:
                             f"An exception occurred while creating index {index_name}: {e}"
                         )
 
-    def fetch_block_data(self, block_height):
-        """
-        Fetches block data using Bitcoin RPC AuthServiceProxy.
-
-        :param block_height: The height of the block to fetch.
-        :return: The block data.
-        """
-
-        # Ensure AuthServiceProxy object is available
-        if not hasattr(self, "bitcoin_rpc") or self.bitcoin_rpc is None:
-            raise Exception("Bitcoin RPC AuthServiceProxy is not configured")
-
-        try:
-            # Fetch block hash for the given height
-            block_hash = self.bitcoin_rpc.getblockhash(block_height)
-
-            # Fetch block data using the block hash
-            block_data = self.bitcoin_rpc.getblock(
-                block_hash, 2
-            )  # 2 for verbose mode (transaction details)
-            return block_data
-
-        except Exception as e:
-            logger.error(f"Error fetching block data: {e}")
-            return None
-
-    def store_block_data(self, block_data):
-        with self.driver.session() as session:
-            try:
-                block_node = session.run(
-                    "CREATE (b:Block {number: $number, hash: $hash}) RETURN b",
-                    number=block_data["height"],
-                    hash=block_data["hash"],
-                )
-                for tx in block_data["tx"]:
-                    tx_node = session.run(
-                        "CREATE (t:Transaction {hash: $hash}) RETURN t",
-                        hash=tx["hash"],
-                    )
-                    session.run(
-                        "MATCH (b:Block), (t:Transaction) WHERE b.hash = $block_hash AND t.hash = $tx_hash CREATE (b)-[:CONTAINS]->(t)",
-                        block_hash=block_data["hash"],
-                        tx_hash=tx["hash"],
-                    )
-            except Exception as e:
-                logger.error(f"Error storing block data: {e}")
-
-    def reverse_index_blocks(self, start_block):
-        current_block = start_block
-        while current_block >= 0:
-            block_data = self.fetch_block_data(current_block)
-            if block_data:
-                self.store_block_data(block_data)
-            else:
-                logger.error(f"Failed to fetch data for block {current_block}")
-
-            current_block -= 1  # Move to the previous block
-
     def create_graph_focused_on_money_flow(self, in_memory_graph, batch_size=8):
         block_node = in_memory_graph["block"]
         transactions = block_node.transactions
@@ -157,6 +100,16 @@ class GraphIndexer:
         with self.driver.session() as session:
             # Start a transaction
             transaction = session.begin_transaction()
+
+            # Now, create the block as well
+            transaction.run(
+                """
+                MERGE (b:Block {block_height: $block_height})
+                ON CREATE SET b.block_hash = $block_hash, b.block_height = $block_height
+                """,
+                block_height=block_node.block_height,
+                block_hash=block_node.block_hash,
+            )
 
             try:
                 for i in range(0, len(transactions), batch_size):
@@ -170,6 +123,9 @@ class GraphIndexer:
                         ON CREATE SET t.timestamp = tx.timestamp,
                                       t.block_height = tx.block_height,
                                       t.is_coinbase = tx.is_coinbase
+                        WITH t, tx
+                        MATCH (b:Block {block_height: tx.block_height})
+                        MERGE (t)-[:INCLUDED_IN]->(b)
                         """,
                         transactions=[
                             {
