@@ -168,7 +168,6 @@ if __name__ == "__main__":
             logger.info("Creating indexes...")
             graph_indexer.create_indexes()
 
-            logger.info("Blocks indexed, starting reverse indexing...")
             reverse_index(
                 doge_node, graph_creator, graph_indexer, start_height, range_data
             )
