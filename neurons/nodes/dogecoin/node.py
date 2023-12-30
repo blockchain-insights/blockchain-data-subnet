@@ -29,9 +29,8 @@ class DogecoinNode:
 
         full_transactions = []
         for txid in block_data["tx"]:
-            raw_tx = rpc_connection.getrawtransaction(txid)
-            decoded_tx = rpc_connection.decoderawtransaction(raw_tx)
-            full_transactions.append(decoded_tx)
+            tx = rpc_connection.getrawtransaction(txid, True)
+            full_transactions.append(tx)
 
         # Construct the final structure similar to Bitcoin's verbose getblock output
         block_data["tx"] = full_transactions
