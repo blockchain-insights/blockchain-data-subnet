@@ -40,3 +40,29 @@ def create_p2sh_address(hashed_script, mainnet=True):
     payload = version_byte + hashed_script
     checksum = SHA256.new(SHA256.new(payload).digest()).digest()[:4]
     return base58.b58encode(payload + checksum).decode()
+
+
+def index_blocks_by_height(transactions, blocks):
+    # Create a mapping from block hash to transactions
+    block_hash_to_transactions = {}
+    for transaction in transactions:
+        block_hash = transaction['blockhash']
+        if block_hash not in block_hash_to_transactions:
+            block_hash_to_transactions[block_hash] = []
+        block_hash_to_transactions[block_hash].append(transaction)
+
+    # Create an index by block height
+    height_index = {}
+    for block in blocks:
+        block_hash = block['hash']
+        block_data = block.copy()  # Make a copy to avoid modifying the original data
+        if block_hash in block_hash_to_transactions:
+            block_data['tx'] = block_hash_to_transactions[block_hash]
+            block_data['tx_count'] = block_data['tx'].count()
+        else:
+            block_data['tx'] = []  # Or handle the case of missing transactions as needed
+            block_data['tx_count'] = 0
+
+        height_index[block['height']] = block_data
+
+    return height_index
