@@ -23,7 +23,7 @@ import traceback
 import typing
 import torch
 import bittensor as bt
-from random import sample
+from random import randint
 from insights import protocol
 from neurons.miners import blacklists
 from neurons.nodes.nodes import get_node
