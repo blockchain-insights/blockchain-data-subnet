@@ -16,7 +16,7 @@ if [ -z "$BUFFER_TX_LIMIT" ]; then
 fi
 
 if [ -z "$DOGE_NODE_RPC_URL" ]; then
-    export DOGE_NODE_RPC_URL="http://bosko:wildebeest@46.17.102.184:22555"
+    export DOGE_NODE_RPC_URL="http://bitcoinrpc:rpcpassword@127.0.0.1:22555"
 fi
 
 if [ -z "$GRAPH_DB_URL" ]; then
@@ -24,11 +24,11 @@ if [ -z "$GRAPH_DB_URL" ]; then
 fi
 
 if [ -z "$GRAPH_DB_USER" ]; then
-    export GRAPH_DB_USER="username"
+    export GRAPH_DB_USER=""
 fi
 
 if [ -z "$GRAPH_DB_PASSWORD" ]; then
-    export GRAPH_DB_PASSWORD="password"
+    export GRAPH_DB_PASSWORD=""
 fi
 
 python3 neurons/miners/dogecoin/funds_flow/indexer_patch.py
