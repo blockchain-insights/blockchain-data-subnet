@@ -2,6 +2,7 @@
 # Copyright © 2023 Yuma Rao
 # Copyright © 2023 aphex5
 import concurrent
+
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
 # the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
@@ -23,7 +24,7 @@ import traceback
 import typing
 import torch
 import bittensor as bt
-from random import randint
+from random import sample
 from insights import protocol
 from neurons.miners import blacklists
 from neurons.nodes.nodes import get_node
