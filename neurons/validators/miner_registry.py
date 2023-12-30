@@ -5,8 +5,8 @@ from sqlalchemy import create_engine, Column, String, DateTime, func, Integer, F
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import datetime
+import bittensor as bt
 
-from neurons.validators.scoring import BLOCKCHAIN_IMPORTANCE
 
 Base = declarative_base()
 
@@ -20,10 +20,8 @@ class MinerRegistry(Base):
     model_type = Column(String)
     response_time = Column(Float)
     score = Column(Float)
+    run_id = Column(String)
     updated = Column(DateTime, default=datetime.datetime.utcnow)
-
-    def __repr__(self):
-        return f"<MinerRegistry(ip_address='{self.ip_address}', hot_key='{self.hot_key}, network='{self.network}', model_type='{self.model_type}', updated='{self.updated}')>"
 
 class MinerBlockRegistry(Base):
     __tablename__ = "miner_block_registry"
@@ -40,29 +38,7 @@ class MinerRegistryManager:
         self.engine = create_engine("sqlite:////data/miner_registry.db")
         Base.metadata.create_all(self.engine)
 
-    # this method will be obsolete once we have a miner registry
-    def get_miner_proportion(self, network, model_type):
-        session = sessionmaker(bind=self.engine)()
-        try:
-            total_miners = session.query(func.count(MinerRegistry.ip_address)).scalar()
-            matching_miners = (
-                session.query(func.count(MinerRegistry.ip_address))
-                .filter(
-                    MinerRegistry.network == network,
-                    MinerRegistry.model_type == model_type,
-                )
-                .scalar()
-            )
-
-            proportion = matching_miners / total_miners if total_miners > 0 else 0
-            return proportion
-        except Exception as e:
-            print(f"Error occurred: {traceback.format_exc()}")
-            return 0
-        finally:
-            session.close()
-
-    def store_miner_metadata(self, hot_key, ip_address, network, model_type, response_time, score):
+    def store_miner_metadata(self, hot_key, ip_address, network, model_type, response_time, score, run_id):
         session = sessionmaker(bind=self.engine)()
         try:
             existing_miner = (
@@ -76,6 +52,7 @@ class MinerRegistryManager:
                 existing_miner.response_time = response_time
                 existing_miner.updated = datetime.datetime.utcnow()
                 existing_miner.score = score
+                existing_miner.run_id = run_id
             else:
                 new_miner = MinerRegistry(
                     ip_address=ip_address,
@@ -84,13 +61,14 @@ class MinerRegistryManager:
                     model_type=model_type,
                     response_time=response_time,
                     score=score,
+                    run_id=run_id,
                 )
                 session.add(new_miner)
 
             session.commit()
         except Exception as e:
             session.rollback()
-            print(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
         finally:
             session.close()
 
@@ -124,7 +102,7 @@ class MinerRegistryManager:
 
         except Exception as e:
             session.rollback()
-            print(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
         finally:
             session.close()
 
@@ -137,7 +115,7 @@ class MinerRegistryManager:
             session.commit()
         except Exception as e:
             session.rollback()
-            print(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
         finally:
             session.close()
 
@@ -168,11 +146,10 @@ class MinerRegistryManager:
             return cheat_factor
 
         except Exception as e:
-            print(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
             return 0
         finally:
             session.close()
-
 
     def get_miner_distribution(self, all_networks):
         session = sessionmaker(bind=self.engine)()
@@ -194,7 +171,76 @@ class MinerRegistryManager:
             return miner_distribution
 
         except Exception as e:
-            print(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
             return {}
+        finally:
+            session.close()
+
+    def detect_multiple_ip_usage(self, hot_key, period_hours=24, allowed_num=9):
+        session = sessionmaker(bind=self.engine)()
+        try:
+            # Current time
+            current_time = datetime.datetime.utcnow()
+
+            # Time 24 hours ago (or the specified period)
+            past_time = current_time - datetime.timedelta(hours=period_hours)
+
+            # Query for repeated IP addresses (without ports) within the last 24 hours
+            repeated_ips = (
+                session.query(
+                    MinerRegistry.ip_address.label('ip'),
+                    func.count(MinerRegistry.ip_address)
+                )
+
+                .filter(
+                    MinerRegistry.hot_key == hot_key,
+                    MinerRegistry.updated >= past_time
+                )
+                .group_by('ip')
+                .having(func.count('ip') > allowed_num)
+                .all()
+            )
+
+            # Print the repeated IP addresses
+            for ip, count in repeated_ips:
+                bt.logging.info(f"IP Address {ip} is used {count} times in the last {period_hours} hours.")
+
+            if len(repeated_ips) == 0:
+                return False
+            return True
+
+        except Exception as e:
+            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            return False
+        finally:
+            session.close()
+
+    def detect_multiple_run_id(self, run_id, allowed_num=9):
+        session = sessionmaker(bind=self.engine)()
+        try:
+            repeated_run_id = (
+                session.query(
+                    MinerRegistry.run_id.label('run_id'),
+                    func.count(MinerRegistry.run_id)
+                )
+                .filter(
+                    MinerRegistry.run_id == run_id
+                )
+                .group_by('run_id')
+                .having(func.count('run_id') > allowed_num)
+                .all()
+            )
+
+            for run_id, count in repeated_run_id:
+                bt.logging.info(f"run_id {run_id} is used {count} times. allowed_num is max {allowed_num}")
+
+            if len(repeated_run_id) == 0:
+                return False
+
+            return True
+
+        except Exception as e:
+            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            return False
         finally:
             session.close()

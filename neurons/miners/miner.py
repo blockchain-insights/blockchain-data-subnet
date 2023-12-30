@@ -24,7 +24,7 @@ import traceback
 import typing
 import torch
 import bittensor as bt
-from random import randint
+from random import sample
 from insights import protocol
 from neurons.miners import blacklists
 from neurons.nodes.nodes import get_node
@@ -40,6 +40,7 @@ from insights.protocol import (
     NETWORK_DOGE,
     MinerDiscoveryMetadata,
 )
+from neurons.remote_config import MinerConfig
 
 
 def get_config():
@@ -99,6 +100,13 @@ def main(config):
         )
         exit()
 
+    """ Building dependencies. """
+    miner_config = MinerConfig()
+    miner_config.load_and_get_config_values()
+    blacklist_registry_manager = blacklists.BlacklistRegistryManager()
+    _blacklist_discovery = blacklists.BlacklistDiscovery(miner_config, blacklist_registry_manager)
+
+
     bt.logging.info(f"Waiting for graph model to sync with blockchain.")
     is_synced = False
     while not is_synced:
@@ -147,10 +155,10 @@ def main(config):
             _latest_block_height = block_range["latest_block_height"]
             start_block_height = block_range["start_block_height"]
 
-            block_heights = [
-                randint(start_block_height, _latest_block_height) for _ in range(10)
-            ]
+            block_heights = sample(range(start_block_height, _latest_block_height + 1), 10)
+
             data_samples = graph_search.get_block_transactions(block_heights)
+            run_id = graph_search.get_run_id()
 
             synapse.output = protocol.MinerDiscoveryOutput(
                 metadata=MinerDiscoveryMetadata(
@@ -160,6 +168,8 @@ def main(config):
                 start_block_height=start_block_height,
                 block_height=_latest_block_height,
                 data_samples=data_samples,
+                run_id=run_id,
+                version=2,
             )
             bt.logging.info(f"Serving miner discovery output: {synapse.output}")
 
@@ -190,10 +200,8 @@ def main(config):
         )
         return prirority
 
-    def blacklist_discovery(
-        synapse: protocol.MinerDiscovery,
-    ) -> typing.Tuple[bool, str]:
-        return blacklists.blacklist_discovery(metagraph, synapse)
+    def blacklist_discovery(synapse: protocol.MinerDiscovery) -> typing.Tuple[bool, str]:
+        return  _blacklist_discovery.blacklist_discovery(metagraph, synapse)
 
     def priority_execute_query(synapse: protocol.MinerQuery) -> float:
         caller_uid = metagraph.hotkeys.index(synapse.dendrite.hotkey)
@@ -328,5 +336,24 @@ def main(config):
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+
     config = get_config()
+
+    # Check for an environment variable to enable local development
+    if os.getenv("MINER_LOCAL_MODE") == "True":
+        # Local development settings
+        config.subtensor.chain_endpoint = "ws://127.0.0.1:9944"
+        config.subtensor.network = "local"
+        config.wallet.hotkey = 'default'
+        config.wallet.name = 'miner'
+        config.netuid = 1
+
+        # set environment variables
+        os.environ['WAIT_FOR_SYNC'] = 'False'
+        os.environ['GRAPH_DB_URL'] = 'bolt://localhost:7687'
+        os.environ['GRAPH_DB_USER'] = 'user'
+        os.environ['GRAPH_DB_PASSWORD'] = 'pwd'
+
     main(config)

@@ -24,11 +24,11 @@ import traceback
 import bittensor as bt
 from random import sample
 from insights import protocol
-from insights.protocol import MinerDiscoveryOutput
+from insights.protocol import MinerDiscoveryOutput, NETWORK_BITCOIN
 from neurons.nodes.nodes import get_node
+from neurons.remote_config import ValidatorConfig
 from neurons.validators.miner_registry import MinerRegistryManager
-from neurons.validators.scoring import calculate_score, verify_data_sample, \
-    BLOCKCHAIN_IMPORTANCE
+from neurons.validators.scoring import Scorer
 
 
 def get_config():
@@ -113,6 +113,12 @@ def main(config):
 
     bt.logging.debug(f"curr_block: {curr_block}, last_updated_block: {last_updated_block}, last_reset_weights_block: {last_reset_weights_block}")
 
+    """ Building dependencies. """
+    validator_config = ValidatorConfig()
+    validator_config.load_and_get_config_values()
+    miner_registry_manager = MinerRegistryManager()
+    scorer = Scorer(validator_config, miner_registry_manager)
+
     bt.logging.info("Starting validator loop.")
     step = 0
 
@@ -166,76 +172,80 @@ def main(config):
                 filtered_axons,
                 protocol.MinerDiscovery(),
                 deserialize=True,
-                timeout = 100,
+                timeout = validator_config.discovery_timeout,
             )
-
-            miner_distribution = MinerRegistryManager().get_miner_distribution(BLOCKCHAIN_IMPORTANCE.keys())
 
             # Cache dictionary
             block_height_cache = {}
 
             for index, response in enumerate(responses):
                 if response.output is None:
-                    bt.logging.debug(f"Skipping response")
+                    bt.logging.debug(f"Skipping response {response}")
                     continue
 
-                # Vars
-                output: MinerDiscoveryOutput = response.output
-                network = output.metadata.network
-                model_type = output.metadata.model_type
+                try:
+                    # Vars
+                    output: MinerDiscoveryOutput = response.output
+                    network = output.metadata.network
+                    model_type = output.metadata.model_type
 
-                start_block_height = output.start_block_height
-                last_block_height = output.block_height
+                    start_block_height = output.start_block_height
+                    last_block_height = output.block_height
 
-                data_samples = output.data_samples
-                axon_ip = response.axon.ip
-                hot_key = response.axon.hotkey
-                response_time = response.axon.process_time
+                    data_samples = output.data_samples
+                    axon_ip = response.axon.ip
+                    hot_key = response.axon.hotkey
+                    run_id = response.output.run_id
+                    response_time = response.dendrite.process_time
 
-                bt.logging.info(f"🔄 Processing response from {axon_ip} / {hot_key}")
+                    if response.output.version is None:
+                        bt.logging.info("Skipping response with no version.")
+                        continue
 
-                node = get_node(network)
-                data_samples_are_valid = validate_all_data_samples(node, network, data_samples)
+                    bt.logging.info(f"🔄 Processing response from {axon_ip} / {hot_key}")
 
-                if len(data_samples) < 10:
-                    data_samples_are_valid = False
+                    node = get_node(network)
+                    data_samples_are_valid = validate_all_data_samples(node, network, data_samples)
 
-                bitcoin_cheat_factor_sample_size = int(config.bitcoin_cheat_factor_sample_size)
-                cheat_factor = MinerRegistryManager().calculate_cheat_factor(hot_key=hot_key, network=network, model_type=model_type, sample_size=bitcoin_cheat_factor_sample_size)
+                    if len(data_samples) < 10:
+                        data_samples_are_valid = False
 
-                if network not in block_height_cache:
-                    block_height_cache[network] = node.get_current_block_height()
+                    if network not in block_height_cache:
+                        block_height_cache[network] = node.get_current_block_height()
 
+                    score = scorer.calculate_score(
+                        network,
+                        hot_key,
+                        model_type,
+                        response_time,
+                        start_block_height,
+                        last_block_height,
+                        block_height_cache[network],
+                        data_samples_are_valid,
+                        run_id
+                    )
 
-                score = calculate_score(
-                    network,
-                    response_time,
-                    start_block_height,
-                    last_block_height,
-                    block_height_cache[network],
-                    miner_distribution,
-                    data_samples_are_valid,
-                    cheat_factor
-                )
+                    scores[dendrites_to_query[index]] = config.alpha * scores[dendrites_to_query[index]] + (1 - config.alpha) * score
 
-                scores[dendrites_to_query[index]] = config.alpha * scores[dendrites_to_query[index]] + (1 - config.alpha) * score
-
-                MinerRegistryManager().store_miner_metadata(
-                    ip_address=axon_ip,
-                    hot_key=hot_key,
-                    network=network,
-                    model_type=model_type,
-                    response_time=response_time,
-                    score=scores[dendrites_to_query[index]],
-                )
-
-                MinerRegistryManager().store_miner_block_height(
-                    hot_key=hot_key,
-                    network=network,
-                    model_type=model_type,
-                    block_height=last_block_height,
-                    bitcoin_cheat_factor_sample_size=bitcoin_cheat_factor_sample_size
-                )
+                    miner_registry_manager.store_miner_metadata(
+                        ip_address=axon_ip,
+                        hot_key=hot_key,
+                        network=network,
+                        model_type=model_type,
+                        response_time=response_time,
+                        score=scores[dendrites_to_query[index]],
+                        run_id=run_id
+                    )
+                    miner_registry_manager.store_miner_block_height(
+                        hot_key=hot_key,
+                        network=network,
+                        model_type=model_type,
+                        block_height=last_block_height,
+                        bitcoin_cheat_factor_sample_size=validator_config.get_cheat_factor_sample_size(network)
+                    )
+                except Exception as e:
+                    bt.logging.error(e)
+                    traceback.print_exc()
 
             current_block = subtensor.block
             bt.logging.info(f"Block difference is {current_block - last_updated_block}.")
@@ -279,6 +289,10 @@ def main(config):
             bt.logging.success("Keyboard interrupt detected. Exiting validator.")
             exit()
 
+        except Exception as e:
+            bt.logging.error(e)
+            traceback.print_exc()
+
 def validate_data_sample(node, network, data_sample):
     block_data = node.get_block_by_height(data_sample['block_height'])
     return verify_data_sample(
@@ -286,6 +300,20 @@ def validate_data_sample(node, network, data_sample):
         input_result=data_sample,
         block_data=block_data
     )
+
+def verify_data_sample(network, input_result, block_data):
+   if network == NETWORK_BITCOIN:
+        block_height = int(input_result['block_height'])
+        transactions = block_data["tx"]
+        num_transactions = len(transactions)
+        result = {
+            "block_height": block_height,
+            "transaction_count": num_transactions,
+        }
+        is_valid = result["transaction_count"] == input_result["transaction_count"]
+        return is_valid
+   else:
+        return False
 
 def validate_all_data_samples(node, network, data_samples):
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -299,6 +327,23 @@ def validate_all_data_samples(node, network, data_samples):
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+
     config = get_config()
+
+    # Check for an environment variable to enable local development
+    if os.getenv("VALIDATOR_LOCAL_MODE") == "True":
+        # Local development settings
+        config.subtensor.chain_endpoint = "ws://127.0.0.1:9944"
+        config.subtensor.network = "local"
+        config.wallet.hotkey = 'default'
+        config.wallet.name = 'validator'
+        config.netuid = 1
+
+        # set environment variables
+        os.environ['GRAPH_DB_URL'] = 'bolt://localhost:7687'
+        os.environ['GRAPH_DB_USER'] = 'user'
+        os.environ['GRAPH_DB_PASSWORD'] = 'pwd'
 
     main(config)
