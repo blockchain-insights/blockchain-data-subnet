@@ -10,8 +10,8 @@ from neurons.miners.dogecoin.funds_flow.graph_search import GraphSearch
 from neurons.miners.utils import (
     subtract_ranges_from_large_range,
     create_ranges_from_list,
-    find_gaps_in_ranges,
     total_items_in_ranges,
+    remove_specific_integers,
 )
 
 
@@ -28,18 +28,18 @@ def shutdown_handler(signum, frame):
     shutdown_flag = True
 
 
-def reverse_index(_bitcoin_node, _graph_creator, _graph_indexer, start_height):
+def reverse_index(_rpc_node, _graph_creator, _graph_indexer, start_h, r_data):
     global shutdown_flag
-    first_indexed_block = start_height
+    first_indexed_block = start_h
 
     logger.info(
         "Indexing backwards; starting from block {}".format(first_indexed_block)
     )
 
     while not shutdown_flag:
-        block_height = start_height
+        block_height = start_h
         while block_height >= 1:
-            block = _bitcoin_node.get_block_by_height(block_height)
+            block = _rpc_node.get_block_by_height(block_height)
             num_transactions = len(block["tx"])
             start_time = time.time()
             in_memory_graph = _graph_creator.create_in_memory_graph_from_block(block)
@@ -48,7 +48,7 @@ def reverse_index(_bitcoin_node, _graph_creator, _graph_indexer, start_height):
             time_taken = end_time - start_time
 
             progress = (
-                (first_indexed_block - 1) / (first_indexed_block - (start_height - 1))
+                r_data["total_blocks_indexed"] / _rpc_node.get_current_block_height()
             ) * 100
 
             formatted_num_transactions = "{:>4}".format(num_transactions)
@@ -76,7 +76,11 @@ def reverse_index(_bitcoin_node, _graph_creator, _graph_indexer, start_height):
                 )
 
             if success:
-                block_height -= 1
+                r_data["total_blocks_indexed"] += 1
+                r_data["unindexed_ranges"] = remove_specific_integers(
+                    r_data["unindexed_ranges"], [block_height]
+                )
+                block_height = r_data["unindexed_ranges"][-1]
 
                 # indexer flooding prevention
                 threshold = int(
@@ -97,7 +101,7 @@ def reverse_index(_bitcoin_node, _graph_creator, _graph_indexer, start_height):
                 logger.info(f"Finished indexing block {block_height} before shutdown.")
                 break
 
-            start_height -= 1
+            start_h = r_data["unindexed_ranges"][-1]
 
 
 # Register the shutdown handler for SIGINT and SIGTERM
@@ -115,24 +119,43 @@ if __name__ == "__main__":
     graph_indexer = GraphIndexer()
     graph_search = GraphSearch()
 
+    range_data = {
+        "indexed_ranges": [],
+        "unindexed_ranges": [],
+        "blocks_to_index": [],
+        "total_blocks_indexed": 0,
+    }
+
     start_height_str = os.getenv("DOGE_START_BLOCK_HEIGHT", None)
+    last_indexed_block = graph_indexer.get_latest_block_number()
     latest_block_height = doge_node.get_current_block_height()
+
     logger.info("Starting reverse indexer; fetching indexed block ranges.")
-    ranges = graph_search.get_block_ranges()
-    logger.info("Ranges present: " + str(ranges))
-    im_ranges = subtract_ranges_from_large_range(latest_block_height, ranges)
-    ranges_to_index = create_ranges_from_list(im_ranges)
-    logger.info("Ranges to index: " + str(ranges_to_index))
+    range_data["indexed_ranges"] = graph_search.get_block_ranges()
+    logger.info("Ranges present: " + str(range_data["indexed_ranges"]))
+    range_data["unindexed_ranges"] = subtract_ranges_from_large_range(
+        latest_block_height, range_data["indexed_ranges"]
+    )
+    range_data["blocks_to_index"] = create_ranges_from_list(
+        range_data["unindexed_ranges"]
+    )
+    logger.info("Blocks to index: " + str(range_data["blocks_to_index"]))
+    range_data["total_blocks_indexed"] = total_items_in_ranges(
+        range_data["indexed_ranges"]
+    )
+    logger.info("Total blocks indexed: " + str(range_data["total_blocks_indexed"]))
 
     retry_delay = 60
     # purpose of this indexer is to index from the given block backwards to the first
     while True:
         try:
-            graph_last_block_height = graph_indexer.get_latest_block_number() - 1
+            graph_last_block_height = last_indexed_block - 1
             if start_height_str is not None:
                 start_height = int(start_height_str)
                 if graph_last_block_height > start_height:
                     start_height = graph_last_block_height
+            elif graph_last_block_height == -1:
+                start_height = latest_block_height
             else:
                 start_height = graph_last_block_height
 
@@ -146,7 +169,9 @@ if __name__ == "__main__":
             graph_indexer.create_indexes()
 
             logger.info("Blocks indexed, starting reverse indexing...")
-            reverse_index(doge_node, graph_creator, graph_indexer, start_height)
+            reverse_index(
+                doge_node, graph_creator, graph_indexer, start_height, range_data
+            )
 
             break
         except Exception as e:

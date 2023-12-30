@@ -5,16 +5,16 @@ def find_gaps_in_ranges(ranges):
     gaps = []
     previous_end = None
     # Iterate through the ranges to find gaps
-    for range in sorted_ranges:
-        if previous_end is not None and range["start_block_height"] > previous_end + 1:
+    for rn in sorted_ranges:
+        if previous_end is not None and rn["start_block_height"] > previous_end + 1:
             # Found a gap
             gaps.append(
                 {
                     "start_block_height": previous_end + 1,
-                    "end_block_height": range["start_block_height"] - 1,
+                    "end_block_height": rn["start_block_height"] - 1,
                 }
             )
-        previous_end = range["end_block_height"]
+        previous_end = rn["end_block_height"]
     return gaps
 
 
@@ -62,7 +62,11 @@ def subtract_ranges_from_large_range(max_height, ranges):
 
 def total_items_in_ranges(ranges):
     total_count = 0
-    for range in ranges:
-        count = range["end_block_height"] - range["start_block_height"] + 1
+    for rn in ranges:
+        count = rn["end_block_height"] - rn["start_block_height"] + 1
         total_count += count
     return total_count
+
+
+def remove_specific_integers(array, integers_to_remove):
+    return [x for x in array if x not in integers_to_remove]
