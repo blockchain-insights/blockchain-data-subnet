@@ -3,7 +3,7 @@ import os
 
 import bittensor as bt
 from bitcoinrpc.authproxy import AuthServiceProxy
-from node_utils import index_blocks_by_height
+from neurons.nodes.utils import index_blocks_by_height
 
 parser = argparse.ArgumentParser()
 bt.logging.add_args(parser)
