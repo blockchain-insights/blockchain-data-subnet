@@ -70,6 +70,7 @@ class GraphIndexer:
                     existing_index_set.add(index_name)
 
             index_creation_statements = {
+                "Block-block_height": "CREATE INDEX ON :Block(block_height);",
                 "Transaction-tx_id": "CREATE INDEX ON :Transaction(tx_id);",
                 "Transaction-block_height": "CREATE INDEX ON :Transaction(block_height);",
                 "Address-address": "CREATE INDEX ON :Address(address);",
@@ -92,6 +93,16 @@ class GraphIndexer:
             # Start a transaction
             transaction = session.begin_transaction()
 
+            # Now, create the block as well
+            transaction.run(
+                """
+                MERGE (b:Block {block_height: $block_height})
+                ON CREATE SET b.block_hash = $block_hash, b.block_height = $block_height
+                """,
+                block_height=block_node.block_height,
+                block_hash=block_node.block_hash,
+            )
+
             try:
                 for i in range(0, len(transactions), batch_size):
                     batch_transactions = transactions[i : i + batch_size]
@@ -104,6 +115,9 @@ class GraphIndexer:
                         ON CREATE SET t.timestamp = tx.timestamp,
                                       t.block_height = tx.block_height,
                                       t.is_coinbase = tx.is_coinbase
+                        WITH t, tx
+                        MATCH (b:Block {block_height: tx.block_height})
+                        MERGE (t)-[:INCLUDED_IN]->(b)
                         """,
                         transactions=[
                             {

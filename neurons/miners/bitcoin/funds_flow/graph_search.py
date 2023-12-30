@@ -107,3 +107,32 @@ class GraphSearch:
                 return 0
             return single_result[0]
 
+    def get_block_ranges(self):
+        with self.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (b:Block)
+                OPTIONAL MATCH (prev:Block {block_height: b.block_height - 1})
+                OPTIONAL MATCH (next:Block {block_height: b.block_height + 1})
+                WITH b, prev, next
+                WHERE prev IS NULL OR next IS NULL
+                WITH CASE WHEN prev IS NULL THEN b ELSE NULL END AS start,
+                     CASE WHEN next IS NULL THEN b ELSE NULL END AS end
+                WITH COLLECT(start) AS starts, COLLECT(end) AS ends
+                UNWIND starts AS startBlock
+                UNWIND ends AS endBlock
+                WITH startBlock, endBlock
+                WHERE startBlock.block_height <= endBlock.block_height
+                RETURN startBlock.block_height AS start_block_height, endBlock.block_height AS end_block_height
+                ORDER BY start_block_height
+                """
+            )
+            ranges = []
+            for record in result:
+                ranges.append(
+                    {
+                        "start_block_height": record["start_block_height"],
+                        "end_block_height": record["end_block_height"],
+                    }
+                )
+            return ranges
