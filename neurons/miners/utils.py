@@ -70,3 +70,14 @@ def total_items_in_ranges(ranges):
 
 def remove_specific_integers(array, integers_to_remove):
     return [x for x in array if x not in integers_to_remove]
+
+
+def next_largest_excluded(block_ranges, number):
+    if not block_ranges:
+        return 1
+
+    for block_range in block_ranges:
+        if block_range['start_block_height'] <= number <= block_range['end_block_height']:
+            return block_range['end_block_height'] + 1
+
+    return number

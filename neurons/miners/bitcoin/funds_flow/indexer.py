@@ -2,11 +2,20 @@ import os
 import signal
 import time
 import traceback
+
+from neurons.miners.bitcoin.funds_flow.graph_search import GraphSearch
 from neurons.setup_logger import setup_logger
 from neurons.nodes.bitcoin.node import BitcoinNode
 from neurons.nodes.dogecoin.node import DogecoinNode
 from neurons.miners.bitcoin.funds_flow.graph_creator import GraphCreator
 from neurons.miners.bitcoin.funds_flow.graph_indexer import GraphIndexer
+from neurons.miners.utils import (
+    subtract_ranges_from_large_range,
+    create_ranges_from_list,
+    total_items_in_ranges,
+    remove_specific_integers,
+    next_largest_excluded
+)
 
 # Global flag to signal shutdown
 shutdown_flag = False
@@ -21,7 +30,7 @@ def shutdown_handler(signum, frame):
     shutdown_flag = True
 
 
-def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height):
+def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height, range_data):
     global shutdown_flag
     skip_blocks = 6
 
@@ -48,7 +57,7 @@ def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height):
             success = _graph_indexer.create_graph_focused_on_money_flow(in_memory_graph)
             end_time = time.time()
             time_taken = end_time - start_time
-            node_block_height = bitcoin_node.get_current_block_height()
+            node_block_height = rpc_node.get_current_block_height()
             progress = block_height / node_block_height * 100
             formatted_num_transactions = "{:>4}".format(num_transactions)
             formatted_time_taken = "{:6.2f}".format(time_taken)
@@ -95,7 +104,6 @@ def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height):
             start_height += 1
 
 
-
 # Register the shutdown handler for SIGINT and SIGTERM
 signal.signal(signal.SIGINT, shutdown_handler)
 signal.signal(signal.SIGTERM, shutdown_handler)
@@ -116,9 +124,41 @@ if __name__ == "__main__":
         exit()
 
     graph_creator = GraphCreator()
+    graph_search = GraphSearch()
     graph_indexer = GraphIndexer()
 
-    start_height_str = os.getenv('BITCOIN_START_BLOCK_HEIGHT', None)
+    start_height_str = os.getenv("BITCOIN_START_BLOCK_HEIGHT", None)
+    last_indexed_block = graph_indexer.get_latest_block_number()
+    latest_block_height = rpc_node.get_current_block_height()
+
+    range_data = {
+        "indexed_ranges": [],
+        "unindexed_ranges": [],
+        "blocks_to_index": [],
+        "total_blocks_indexed": 0,
+    }
+
+
+    logger.info("Fetching indexed block ranges.")
+    range_data["indexed_ranges"] = graph_search.get_block_ranges()
+    logger.info("Ranges present: " + str(range_data["indexed_ranges"]))
+
+    # this one is the actual array of integers to index
+    range_data["unindexed_ranges"] = subtract_ranges_from_large_range(
+        latest_block_height, range_data["indexed_ranges"]
+    )
+
+    range_data["blocks_to_index"] = create_ranges_from_list(
+        range_data["unindexed_ranges"]
+    )
+
+    logger.info("Blocks to index: " + str(range_data["blocks_to_index"]))
+
+    range_data["total_blocks_indexed"] = total_items_in_ranges(
+        range_data["indexed_ranges"]
+    )
+
+    logger.info("Total blocks indexed: " + str(range_data["total_blocks_indexed"]))
 
     retry_delay = 60
     # purpose of this indexer is to index FROM to infinity only, indexing previous block range will be covered by another indexer - indexer_patch.py which will be slowly adding previous blocks to the graph
@@ -127,11 +167,9 @@ if __name__ == "__main__":
             logger.info("Starting indexer")
             graph_last_block_height = graph_indexer.get_latest_block_number() + 1
             if start_height_str is not None:
-                start_height = int(start_height_str)
-                if graph_last_block_height > start_height:
-                    start_height = graph_last_block_height
+                start_height = next_largest_excluded(range_data["blocks_to_index"], int(start_height_str))
             else:
-                start_height = graph_last_block_height
+                start_height = range_data["unindexed_ranges"][0]
 
             logger.info(f"Starting from block height: {start_height}")
             logger.info(f"Current node block height: {rpc_node.get_current_block_height()}")
@@ -140,7 +178,7 @@ if __name__ == "__main__":
             logger.info("Creating indexes...")
             graph_indexer.create_indexes()
             logger.info("Starting indexing blocks...")
-            index_blocks(rpc_node, graph_creator, graph_indexer, start_height)
+            index_blocks(rpc_node, graph_creator, graph_indexer, start_height, range_data)
             break
         except Exception as e:
             ## traceback.print_exc()
