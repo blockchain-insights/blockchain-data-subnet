@@ -19,7 +19,7 @@ class DogecoinNode:
     ):
         if node_rpc_url is None:
             self.node_rpc_url = (
-                os.environ.get("DOGE_NODE_RPC_URL")
+                os.environ.get("NODE_RPC_URL")
                 or "http://doge:doge@127.0.0.1:44555"
             )
         else:

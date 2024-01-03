@@ -36,8 +36,8 @@ if [ -z "$WAIT_FOR_SYNC" ]; then
     export WAIT_FOR_SYNC="True"
 fi
 
-if [ -z "$DOGE_NODE_RPC_URL" ]; then
-    export DOGE_NODE_RPC_URL="http://doge:doge@127.0.0.1:44555"
+if [ -z "$NODE_RPC_URL" ]; then
+    export NODE_RPC_URL="http://doge:doge@127.0.0.1:44555"
 fi
 
 

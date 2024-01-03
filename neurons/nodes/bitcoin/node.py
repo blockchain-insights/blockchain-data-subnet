@@ -11,7 +11,7 @@ class BitcoinNode:
     def __init__(self, node_rpc_url: str = None):
         if node_rpc_url is None:
             self.node_rpc_url = (
-                os.environ.get("BITCOIN_NODE_RPC_URL")
+                os.environ.get("NODE_RPC_URL")
                 or "http://bitcoinrpc:rpcpassword@127.0.0.1:8332"
             )
         else:

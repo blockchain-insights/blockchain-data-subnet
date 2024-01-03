@@ -15,8 +15,8 @@ if [ -z "$BUFFER_TX_LIMIT" ]; then
   export BUFFER_TX_LIMIT=1000
 fi
 
-if [ -z "$DOGE_NODE_RPC_URL" ]; then
-    export DOGE_NODE_RPC_URL="http://bitcoinrpc:rpcpassword@127.0.0.1:22555"
+if [ -z "$NODE_RPC_URL" ]; then
+    export NODE_RPC_URL="http://dogerpc:rpcpassword@127.0.0.1:22555"
 fi
 
 if [ -z "$GRAPH_DB_URL" ]; then
