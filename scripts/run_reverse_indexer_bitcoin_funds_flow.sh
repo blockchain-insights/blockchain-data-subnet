@@ -31,4 +31,8 @@ if [ -z "$GRAPH_DB_PASSWORD" ]; then
     export GRAPH_DB_PASSWORD=""
 fi
 
+if [ -z "$END_BLOCK" ]; then
+    export END_BLOCK=1
+fi
+
 python3 neurons/miners/bitcoin/funds_flow/indexer_patch.py

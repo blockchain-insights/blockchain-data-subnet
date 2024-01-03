@@ -31,6 +31,9 @@ def shutdown_handler(signum, frame):
 def reverse_index(_rpc_node, _graph_creator, _graph_indexer, start_h, r_data):
     global shutdown_flag
     first_indexed_block = start_h
+    end_block = int(
+        os.getenv("END_BLOCK", 1)
+    )
 
     logger.info(
         "Indexing backwards; starting from block {}".format(first_indexed_block)
@@ -81,6 +84,10 @@ def reverse_index(_rpc_node, _graph_creator, _graph_indexer, start_h, r_data):
                     r_data["unindexed_ranges"], [block_height]
                 )
                 block_height = r_data["unindexed_ranges"][-1]
+
+                if block_height <= end_block:
+                    logger.info(f"Indexed up to {end_block}, finishing...")
+                    break
 
                 # indexer flooding prevention
                 threshold = int(
