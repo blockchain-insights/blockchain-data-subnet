@@ -18,6 +18,15 @@ fi
 
 if [ -z "$NODE_RPC_URL" ]; then
     export NODE_RPC_URL="http://bitcoinrpc:rpcpassword@127.0.0.1:8332"
+
 fi
 
-python3 neurons/validators/validator.py --bitcoin_cheat_factor_sample_size "$BITCOIN_CHEAT_FACTOR_SAMPLE_SIZE" --wallet.name "$WALLET_NAME" --wallet.hotkey "$WALLET_HOTKEY" --netuid 15 --subtensor.network finney --logging.debug --logging.trace
+if [ -z "$SUBTENSOR_URL" ]; then
+    export SUBTENSOR_URL=ws://51.158.60.18:9944
+fi
+
+if [ -z "$SUBTENSOR_NETWORK" ]; then
+    export SUBTENSOR_NETWORK=local
+fi
+
+python3 neurons/validators/validator.py --bitcoin_cheat_factor_sample_size "$BITCOIN_CHEAT_FACTOR_SAMPLE_SIZE" --wallet.name "$WALLET_NAME" --wallet.hotkey "$WALLET_HOTKEY" --netuid 15 --subtensor.network "$SUBTENSOR_NETWORK" --subtensor.chain_endpoint "$SUBTENSOR_URL" --logging.trace
