@@ -35,4 +35,9 @@ if [ -z "$END_BLOCK" ]; then
     export END_BLOCK=1
 fi
 
+if [ -z "$NETWORK" ]; then
+    export NETWORK=doge
+fi
+
+
 python3 neurons/miners/dogecoin/funds_flow/indexer_patch.py

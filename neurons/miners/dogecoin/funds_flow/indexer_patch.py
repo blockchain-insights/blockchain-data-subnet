@@ -4,9 +4,9 @@ import time
 import traceback
 from neurons.setup_logger import setup_logger
 from neurons.nodes.dogecoin.node import DogecoinNode
-from neurons.miners.dogecoin.funds_flow.graph_creator import GraphCreator
-from neurons.miners.dogecoin.funds_flow.graph_indexer import GraphIndexer
-from neurons.miners.dogecoin.funds_flow.graph_search import GraphSearch
+from neurons.miners.bitcoin.funds_flow.graph_creator import GraphCreator
+from neurons.miners.bitcoin.funds_flow.graph_indexer import GraphIndexer
+from neurons.miners.bitcoin.funds_flow.graph_search import GraphSearch
 from neurons.miners.utils import (
     subtract_ranges_from_large_range,
     create_ranges_from_list,

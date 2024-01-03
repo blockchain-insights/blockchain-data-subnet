@@ -19,4 +19,8 @@ if [ -z "$GRAPH_DB_PASSWORD" ]; then
     export GRAPH_DB_PASSWORD=""
 fi
 
+if [ -z "$NETWORK" ]; then
+    export NETWORK=doge
+fi
+
 python3 neurons/miners/dogecoin/funds_flow/indexer.py

@@ -85,6 +85,10 @@ def reverse_index(_rpc_node, _graph_creator, _graph_indexer, start_h, r_data):
                 )
                 block_height = r_data["unindexed_ranges"][-1]
 
+                if block_height <= end_block:
+                    logger.info(f"Indexed up to {end_block}, finishing...")
+                    break
+
                 # indexer flooding prevention
                 threshold = int(
                     os.getenv("BLOCK_PROCESSING_TRANSACTION_THRESHOLD", 500)
@@ -102,10 +106,6 @@ def reverse_index(_rpc_node, _graph_creator, _graph_indexer, start_h, r_data):
 
             if shutdown_flag:
                 logger.info(f"Finished indexing block {block_height} before shutdown.")
-                break
-
-            if r_data["unindexed_ranges"][-1] <= end_block:
-                logger.info(f"Indexed up to {end_block}, finishing...")
                 break
 
             start_h = r_data["unindexed_ranges"][-1]
