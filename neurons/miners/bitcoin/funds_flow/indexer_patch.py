@@ -4,6 +4,7 @@ import time
 import traceback
 from neurons.setup_logger import setup_logger
 from neurons.nodes.bitcoin.node import BitcoinNode
+from neurons.nodes.dogecoin.node import DogecoinNode
 from neurons.miners.bitcoin.funds_flow.graph_creator import GraphCreator
 from neurons.miners.bitcoin.funds_flow.graph_indexer import GraphIndexer
 from neurons.miners.bitcoin.funds_flow.graph_search import GraphSearch
@@ -121,7 +122,17 @@ if __name__ == "__main__":
     reverse_index_blocks = True
     load_dotenv()
 
-    bitcoin_node = BitcoinNode()
+    rpc_node = None
+    network = os.getenv('NETWORK')
+
+    if network == 'bitcoin':
+        rpc_node = BitcoinNode()
+    elif network == 'doge':
+        rpc_node = DogecoinNode()
+    else:
+        logger.error(f"Network {network} not supported; exiting")
+        exit()
+
     graph_creator = GraphCreator()
     graph_indexer = GraphIndexer()
     graph_search = GraphSearch()
@@ -176,7 +187,7 @@ if __name__ == "__main__":
             graph_indexer.create_indexes()
 
             reverse_index(
-                bitcoin_node, graph_creator, graph_indexer, start_height, range_data
+                rpc_node, graph_creator, graph_indexer, start_height, range_data
             )
 
             break

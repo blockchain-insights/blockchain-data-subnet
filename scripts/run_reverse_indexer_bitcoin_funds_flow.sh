@@ -36,7 +36,7 @@ if [ -z "$END_BLOCK" ]; then
 fi
 
 if [ -z "$NETWORK" ]; then
-    export NETWORK=bitcoin
+    export NETWORK="bitcoin"
 fi
 
 python3 neurons/miners/bitcoin/funds_flow/indexer_patch.py

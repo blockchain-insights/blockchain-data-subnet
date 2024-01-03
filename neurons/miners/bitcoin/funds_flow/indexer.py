@@ -4,6 +4,7 @@ import time
 import traceback
 from neurons.setup_logger import setup_logger
 from neurons.nodes.bitcoin.node import BitcoinNode
+from neurons.nodes.dogecoin.node import DogecoinNode
 from neurons.miners.bitcoin.funds_flow.graph_creator import GraphCreator
 from neurons.miners.bitcoin.funds_flow.graph_indexer import GraphIndexer
 
@@ -103,7 +104,17 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
 
-    bitcoin_node = BitcoinNode()
+    network = os.getenv('NETWORK')
+    rpc_node = None
+
+    if network == 'bitcoin':
+        rpc_node = BitcoinNode()
+    elif network == 'doge':
+        rpc_node = DogecoinNode()
+    else:
+        logger.error(f"Network {network} not supported; exiting")
+        exit()
+
     graph_creator = GraphCreator()
     graph_indexer = GraphIndexer()
 
@@ -123,13 +134,13 @@ if __name__ == "__main__":
                 start_height = graph_last_block_height
 
             logger.info(f"Starting from block height: {start_height}")
-            logger.info(f"Current node block height: {bitcoin_node.get_current_block_height()}")
+            logger.info(f"Current node block height: {rpc_node.get_current_block_height()}")
             logger.info(f"Latest indexed block height: {graph_last_block_height}")
 
             logger.info("Creating indexes...")
             graph_indexer.create_indexes()
             logger.info("Starting indexing blocks...")
-            index_blocks(bitcoin_node, graph_creator, graph_indexer, start_height)
+            index_blocks(rpc_node, graph_creator, graph_indexer, start_height)
             break
         except Exception as e:
             ## traceback.print_exc()
