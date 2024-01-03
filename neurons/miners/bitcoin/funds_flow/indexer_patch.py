@@ -146,7 +146,7 @@ if __name__ == "__main__":
 
     start_height_str = os.getenv("BITCOIN_START_BLOCK_HEIGHT", None)
     last_indexed_block = graph_indexer.get_latest_block_number()
-    latest_block_height = bitcoin_node.get_current_block_height()
+    latest_block_height = rpc_node.get_current_block_height()
 
     logger.info("Starting reverse indexer; fetching indexed block ranges.")
     range_data["indexed_ranges"] = graph_search.get_block_ranges()
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
             logger.info(f"Starting from block height: {start_height}")
             logger.info(
-                f"Current node block height: {bitcoin_node.get_current_block_height()}"
+                f"Current node block height: {rpc_node.get_current_block_height()}"
             )
             logger.info(f"Latest indexed block height: {graph_last_block_height}")
 

@@ -124,7 +124,7 @@ if __name__ == "__main__":
     # purpose of this indexer is to index FROM to infinity only, indexing previous block range will be covered by another indexer - indexer_patch.py which will be slowly adding previous blocks to the graph
     while True:
         try:
-            logger.info("Starting reverse indexer")
+            logger.info("Starting indexer")
             graph_last_block_height = graph_indexer.get_latest_block_number() + 1
             if start_height_str is not None:
                 start_height = int(start_height_str)
