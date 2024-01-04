@@ -30,27 +30,27 @@ def shutdown_handler(signum, frame):
     shutdown_flag = True
 
 
-def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height, range_data):
+def index_blocks(_rpc_node, _graph_creator, _graph_indexer, start_h, r_data):
     global shutdown_flag
     skip_blocks = 6
 
     while not shutdown_flag:
-        current_block_height = _bitcoin_node.get_current_block_height() - 6
+        current_block_height = _rpc_node.get_current_block_height() - 6
         if current_block_height - skip_blocks < 0:
             logger.info("Waiting min 6 for blocks to be mined.")
             time.sleep(10)
             continue
 
-        if start_height > current_block_height or start_height >= current_block_height - skip_blocks:
+        if start_h > current_block_height or start_h >= current_block_height - skip_blocks:
             logger.info(
                 f"Waiting for new blocks. Current height is {current_block_height}."
             )
-            time.sleep(10)
+            time.sleep(30)
             continue
 
-        block_height = start_height
+        block_height = start_h
         while block_height <= current_block_height - skip_blocks:
-            block = _bitcoin_node.get_block_by_height(block_height)
+            block = _rpc_node.get_block_by_height(block_height)
             num_transactions = len(block["tx"])
             start_time = time.time()
             in_memory_graph = _graph_creator.create_in_memory_graph_from_block(block)
@@ -83,8 +83,14 @@ def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height, ra
                     )
                 )
 
+            int_index = r_data["unindexed_ranges"].index(block_height)
+
             if success:
-                block_height += 1
+                r_data["total_blocks_indexed"] += 1
+
+                r_data["unindexed_ranges"] = remove_specific_integers(
+                    r_data["unindexed_ranges"], [block_height]
+                )
 
                 # indexer flooding prevention
                 threshold = int(os.getenv('BLOCK_PROCESSING_TRANSACTION_THRESHOLD', 500))
@@ -101,7 +107,7 @@ def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height, ra
                 logger.info(f"Finished indexing block {block_height} before shutdown.")
                 break
 
-            start_height += 1
+            start_h = r_data["unindexed_ranges"][int_index]
 
 
 # Register the shutdown handler for SIGINT and SIGTERM
@@ -164,7 +170,7 @@ if __name__ == "__main__":
     logger.info("Total blocks indexed: " + str(range_data["total_blocks_indexed"]))
 
     retry_delay = 60
-    # purpose of this indexer is to index FROM to infinity only, indexing previous block range will be covered by another indexer - indexer_patch.py which will be slowly adding previous blocks to the graph
+    # purpose of this indexer is to index FROM to infinity only
     while True:
         try:
             logger.info("Starting indexer")
