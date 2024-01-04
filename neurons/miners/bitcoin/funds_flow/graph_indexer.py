@@ -40,17 +40,26 @@ class GraphIndexer:
 
     def get_latest_block_number(self):
         with self.driver.session() as session:
-            result = session.run(
+            query = session.run(
                 """
-                MATCH (t:Transaction)
-                RETURN MAX(t.block_height) AS latest_block_height
+                MATCH (b:Block)
+                RETURN MAX(b.block_height) AS latest_block_height
                 """
             )
-            single_result = result.single()
-            if single_result[0] is None:
-                return 0
+            result = query.single()
 
-            return single_result[0]
+            if result[0] is None:
+                query = session.run(
+                    """
+                    MATCH (t:Transaction)
+                    RETURN MAX(t.block_height) AS latest_block_height
+                    """
+                    )
+                result = query.single()
+                if result[0] is None:
+                    return 0
+
+            return result[0]
 
     from decimal import getcontext
 

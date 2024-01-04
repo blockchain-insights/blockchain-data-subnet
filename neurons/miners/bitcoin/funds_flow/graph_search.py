@@ -83,6 +83,7 @@ class GraphSearch:
                 """
             )
             single_result = result.single()
+
             if single_result[0] is None:
                 return {
                     'latest_block_height': 0,
@@ -107,32 +108,48 @@ class GraphSearch:
                 return 0
             return single_result[0]
 
+
     def get_block_ranges(self):
+        """
+        This function generates block ranges from a memgraph indexing data.
+
+        Returns:
+           output (list): A list of dictionaries indicating the start_block_height and the end_block_height.
+        """
+
+        ranges = []
+
         with self.driver.session() as session:
             result = session.run(
                 """
                 MATCH (b:Block)
-                OPTIONAL MATCH (prev:Block {block_height: b.block_height - 1})
-                OPTIONAL MATCH (next:Block {block_height: b.block_height + 1})
-                WITH b, prev, next
-                WHERE prev IS NULL OR next IS NULL
-                WITH CASE WHEN prev IS NULL THEN b ELSE NULL END AS start,
-                     CASE WHEN next IS NULL THEN b ELSE NULL END AS end
-                WITH COLLECT(start) AS starts, COLLECT(end) AS ends
-                UNWIND starts AS startBlock
-                UNWIND ends AS endBlock
-                WITH startBlock, endBlock
-                WHERE startBlock.block_height <= endBlock.block_height
-                RETURN startBlock.block_height AS start_block_height, endBlock.block_height AS end_block_height
-                ORDER BY start_block_height
+                RETURN DISTINCT b.block_height AS height
+                ORDER BY height ASCENDING
                 """
             )
-            ranges = []
+
             for record in result:
                 ranges.append(
-                    {
-                        "start_block_height": record["start_block_height"],
-                        "end_block_height": record["end_block_height"],
-                    }
+                    record['height']
                 )
-            return ranges
+
+        # handle an empty list
+        if not ranges:
+            return []
+
+        result = []
+        start = ranges[0]
+        end = start
+
+        # Iterate over the list of integers
+        for i in range(1, len(ranges)):
+            # Check if the current integer is consecutive
+            if ranges[i] == end + 1:
+                end = ranges[i]
+            else:
+                # If not consecutive, save the previous range and start a new one
+                result.append({'start_block_height': start, 'end_block_height': end})
+                start = ranges[i]
+                end = start
+
+        return result

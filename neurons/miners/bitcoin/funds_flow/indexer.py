@@ -41,7 +41,7 @@ def index_blocks(_bitcoin_node, _graph_creator, _graph_indexer, start_height, ra
             time.sleep(10)
             continue
 
-        if start_height > current_block_height:
+        if start_height > current_block_height or start_height >= current_block_height - skip_blocks:
             logger.info(
                 f"Waiting for new blocks. Current height is {current_block_height}."
             )
@@ -123,13 +123,18 @@ if __name__ == "__main__":
         logger.error(f"Network {network} not supported; exiting")
         exit()
 
+    logger.info(f"Indexing {network}...")
+
     graph_creator = GraphCreator()
     graph_search = GraphSearch()
     graph_indexer = GraphIndexer()
 
     start_height_str = os.getenv("BITCOIN_START_BLOCK_HEIGHT", None)
+    logger.info(f"Start height env var: {start_height_str}")
     last_indexed_block = graph_indexer.get_latest_block_number()
+    logger.info(f"Last indexed block: {last_indexed_block}")
     latest_block_height = rpc_node.get_current_block_height()
+    logger.info(f"Latest block height: {latest_block_height}")
 
     range_data = {
         "indexed_ranges": [],
@@ -141,7 +146,7 @@ if __name__ == "__main__":
 
     logger.info("Fetching indexed block ranges.")
     range_data["indexed_ranges"] = graph_search.get_block_ranges()
-    logger.info("Ranges present: " + str(range_data["indexed_ranges"]))
+    # logger.info(f'Indexed ranges: {range_data["indexed_ranges"]}')
 
     # this one is the actual array of integers to index
     range_data["unindexed_ranges"] = subtract_ranges_from_large_range(
@@ -151,8 +156,6 @@ if __name__ == "__main__":
     range_data["blocks_to_index"] = create_ranges_from_list(
         range_data["unindexed_ranges"]
     )
-
-    logger.info("Blocks to index: " + str(range_data["blocks_to_index"]))
 
     range_data["total_blocks_indexed"] = total_items_in_ranges(
         range_data["indexed_ranges"]
@@ -166,6 +169,8 @@ if __name__ == "__main__":
         try:
             logger.info("Starting indexer")
             graph_last_block_height = graph_indexer.get_latest_block_number() + 1
+            logger.info(f"Latest indexed block: {graph_last_block_height}")
+
             if start_height_str is not None:
                 start_height = next_largest_excluded(range_data["blocks_to_index"], int(start_height_str))
             else:

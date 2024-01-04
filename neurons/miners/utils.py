@@ -17,26 +17,20 @@ def find_gaps_in_ranges(ranges):
         previous_end = rn["end_block_height"]
     return gaps
 
-
 def create_ranges_from_list(numbers):
+    if not isinstance(numbers, list) or not all(isinstance(i, int) for i in numbers):
+        return "Invalid input"
     if not numbers:
         return []
-    # Sort the list
-    sorted_numbers = sorted(numbers)
-    # Initialize the first range
+    sorted_numbers = sorted(set(numbers))  # removing duplicates with set
     ranges = []
-    start = sorted_numbers[0]
-    end = start
-    # Iterate through the list
+    start = end = sorted_numbers[0]
     for number in sorted_numbers[1:]:
         if number == end + 1:
-            # Continue the range
             end = number
         else:
-            # End the current range and start a new one
             ranges.append({"start_block_height": start, "end_block_height": end})
             start = end = number
-    # Add the last range
     ranges.append({"start_block_height": start, "end_block_height": end})
     return ranges
 
@@ -73,11 +67,12 @@ def remove_specific_integers(array, integers_to_remove):
 
 
 def next_largest_excluded(block_ranges, number):
+    res = number
     if not block_ranges:
-        return 1
+        res = 1
 
     for block_range in block_ranges:
         if block_range['start_block_height'] <= number <= block_range['end_block_height']:
-            return block_range['end_block_height'] + 1
+            res = block_range['end_block_height'] + 1
 
-    return number
+    return res
