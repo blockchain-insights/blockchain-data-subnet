@@ -76,3 +76,32 @@ def next_largest_excluded(block_ranges, number):
             res = block_range['end_block_height'] + 1
 
     return res
+
+
+def get_ranges_from_block_heights(block_heights):
+    result = []
+    start = block_heights[0]
+    end = start
+
+    # Iterate over the list of integers
+    for i in range(1, len(block_heights)):
+        # Check if the current integer is consecutive
+        if block_heights[i] == end + 1:
+            end = block_heights[i]
+        else:
+            # If not consecutive, save the previous range and start a new one
+            result.append({'start_block_height': start, 'end_block_height': end})
+            start = block_heights[i]
+            end = start
+
+    return result
+
+
+def range_equality(first, second):
+    if len(first) != len(second):
+        return False
+    for i in range(len(first)):
+        if first[i] != second[i]:
+            return False
+    return True
+

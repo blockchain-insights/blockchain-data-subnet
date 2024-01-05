@@ -2,6 +2,7 @@ import os
 import typing
 
 from neo4j import GraphDatabase
+from neurons.miners.utils import get_ranges_from_block_heights
 
 
 class GraphSearch:
@@ -108,7 +109,6 @@ class GraphSearch:
                 return 0
             return single_result[0]
 
-
     def get_block_ranges(self):
         """
         This function generates block ranges from a memgraph indexing data.
@@ -137,19 +137,55 @@ class GraphSearch:
         if not ranges:
             return []
 
-        result = []
-        start = ranges[0]
-        end = start
+        return get_ranges_from_block_heights(ranges)
 
-        # Iterate over the list of integers
-        for i in range(1, len(ranges)):
-            # Check if the current integer is consecutive
-            if ranges[i] == end + 1:
-                end = ranges[i]
+    def check_if_only_txs_are_present(self):
+        """
+        Migration function; checks if both blocks and transactions are indexed. Returns True if there are matching block
+        and transaction ranges; false if otherwise.
+        """
+
+        with self.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (t:Transaction)
+                RETURN MAX(t.block_height) AS latest_block_height, MIN(t.block_height) AS start_block_height
+                """
+            )
+            single_result = result.single()
+
+            # If no txs are present, no indexing has taken place.
+            if single_result[0] is None:
+                return False
+
+            txs_present = {
+                'latest_block_height': single_result[0],
+                'start_block_height': single_result[1]
+            }
+
+            ranges = []
+
+            result = session.run(
+                """
+                MATCH (b:Block)
+                RETURN DISTINCT b.block_height AS height
+                ORDER BY height ASCENDING
+                """
+            )
+
+            for record in result:
+                ranges.append(
+                    record['height']
+                )
+
+            present_block_ranges = get_ranges_from_block_heights(ranges)
+
+            if [txs_present] == present_block_ranges:
+                return True
             else:
-                # If not consecutive, save the previous range and start a new one
-                result.append({'start_block_height': start, 'end_block_height': end})
-                start = ranges[i]
-                end = start
+                return False
 
-        return result
+
+
+
+
