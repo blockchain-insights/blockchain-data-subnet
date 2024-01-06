@@ -104,6 +104,10 @@ def main(config):
     blacklist_registry_manager = blacklists.BlacklistRegistryManager()
     _blacklist_discovery = blacklists.BlacklistDiscovery(miner_config, blacklist_registry_manager)
 
+    """ Commit information about metadata """
+    """ subtensor.commit(wallet, 1, "Testing the commit capability! Hello, world!")
+        data = subtensor.get_commitment(1, 1) 
+    print(data) """
 
     bt.logging.info(f"Waiting for graph model to sync with blockchain.")
     is_synced=False
@@ -326,7 +330,7 @@ if __name__ == "__main__":
     # Check for an environment variable to enable local development
     if os.getenv("MINER_LOCAL_MODE") == "True":
         # Local development settings
-        config.subtensor.chain_endpoint = "ws://127.0.0.1:9944"
+        config.subtensor.chain_endpoint = "ws://127.0.0.1:9946"
         config.subtensor.network = "local"
         config.wallet.hotkey = 'default'
         config.wallet.name = 'miner'
