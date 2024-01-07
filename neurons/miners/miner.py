@@ -19,6 +19,7 @@ import concurrent
 import os
 import time
 import argparse
+import docker
 import traceback
 import typing
 import torch
@@ -104,10 +105,21 @@ def main(config):
     blacklist_registry_manager = blacklists.BlacklistRegistryManager()
     _blacklist_discovery = blacklists.BlacklistDiscovery(miner_config, blacklist_registry_manager)
 
+    client = docker.from_env()
+
+    # Assuming you know the container ID or name
+    """ container_id = os.getenv("CONTAINER_ID") """
+    """if container_id is not None: """
+    """ container = client.containers.get(container_id) """
+    """ image_details = container.image.tags """
+
+    """ print(f"Image Details: {image_details}") """
+
     """ Commit information about metadata """
-    """ subtensor.commit(wallet, 1, "Testing the commit capability! Hello, world!")
-        data = subtensor.get_commitment(1, 1) 
-    print(data) """
+    subtensor.commit(wallet, 59, "Testing the commit capability! Hello, world!")
+    uid = subtensor.get_uid_for_hotkey_on_subnet(wallet.hotkey.ss58_address, 59)
+    data = subtensor.get_commitment(59, uid)
+    print(data)
 
     bt.logging.info(f"Waiting for graph model to sync with blockchain.")
     is_synced=False
@@ -331,6 +343,7 @@ if __name__ == "__main__":
     if os.getenv("MINER_TEST_MODE") == "True":
         # Local development settings
         config.subtensor.network = 'test'
+        config.subtensor.chain_endpoint = None
         config.wallet.hotkey = 'default'
         config.wallet.name = 'miner'
         config.netuid = 59
