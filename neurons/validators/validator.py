@@ -31,6 +31,9 @@ from neurons.nodes.node_utils import create_node_from_network
 from neurons import VERSION, MAX_MULTIPLE_IPS, MAX_MULTIPLE_RUN_ID, get_network_by_id
 from insights.protocol import MinerDiscoveryOutput, NETWORK_BITCOIN, MinerRandomBlockCheckOutput, MAX_MULTIPLE_IPS, \
     MAX_MULTIPLE_RUN_ID, get_network_by_id
+
+from neurons import VERSION
+from neurons.docker_utils import get_docker_image_version
 from neurons.nodes.nodes import get_node
 from neurons.remote_config import ValidatorConfig
 from neurons.validators.scoring import Scorer
@@ -264,6 +267,9 @@ def main(config):
 
             current_block = subtensor.block
 
+            if subtensor.block - last_updated_block >= 100:
+                store_validator_metadata(subtensor, wallet, my_subnet_uid, config.netuid)
+
             if current_block - last_updated_block > 100:
                 weights = scores / torch.sum(scores)
                 bt.logging.info(f"Setting weights: {weights}")
@@ -293,6 +299,7 @@ def main(config):
             # Resync our local state with the latest state from the blockchain.
             metagraph = subtensor.metagraph(config.netuid)
             torch.save(scores, scores_file)
+            store_validator_metadata(subtensor, wallet, my_subnet_uid, config.netuid)
             validator_config.load_and_get_config_values()
             time.sleep(bt.__blocktime__ * 10)
 
@@ -360,6 +367,41 @@ def count_ip_per_hotkey(filtered_axons):
         ip_count[hotkey] = len(ip_count[hotkey])
     return ip_count
 
+
+def store_validator_metadata(subtensor, wallet, uid, netuid):
+    def get_json_metadata():
+        docker_image = get_docker_image_version()
+        metadata = {
+            'b': subtensor.block,
+            'v': VERSION,
+            'di': docker_image,
+        }
+        metadata_json = json.dumps(metadata)
+        return (metadata, metadata_json)
+
+    try:
+        current_metadata_json = None
+        try:
+            current_metadata_json = subtensor.get_commitment(netuid, uid)
+            if current_metadata_json is None:
+                metadata, metadata_json = get_json_metadata()
+                subtensor.commit(wallet, netuid, metadata_json)
+                bt.logging.info(f"Stored validator metadata: {metadata}")
+                return
+        except TypeError as e:
+            pass
+
+        if current_metadata_json is not None:
+            metadata = json.loads(current_metadata_json)
+            if subtensor.block - metadata['b'] < 100:
+                bt.logging.info(f"Validator metadata already stored: {metadata}")
+                return
+
+        metadata, metadata_json = get_json_metadata()
+        subtensor.commit(wallet, netuid, metadata_json)
+        bt.logging.info(f"Stored validator metadata: {metadata}")
+    except bt.errors.MetadataError as e:
+        bt.logging.error(f"Failed to store validator metadata: {e}")
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
