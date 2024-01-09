@@ -1,4 +1,4 @@
-bittensor==6.5.0
+bittensor
 torch
 python-bitcoinrpc
 bitcoin
@@ -11,3 +11,8 @@ python-dotenv
 sqlalchemy
 requests
 urllib3
+fastapi
+schedule
+django-scheduler
+pymongo
+pydantic

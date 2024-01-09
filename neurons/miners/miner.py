@@ -21,6 +21,8 @@ import time
 import argparse
 import docker
 import schedule
+import socket
+import pymongo
 import traceback
 import typing
 import torch
@@ -41,6 +43,50 @@ from insights.protocol import (
     MinerDiscoveryMetadata,
 )
 from neurons.remote_config import MinerConfig
+
+def store_miner_metadata():
+    def get_docker_image_version():
+        try:
+            container_id = socket.gethostname()
+            client = docker.from_env()
+            container = client.containers.get(container_id)
+            image_details = container.image.tags
+            image_details = [x for x in image_details if x != 'latest']
+            if len(image_details) > 0:
+                return image_details[0]
+            else:
+                bt.logging.error(f"Could not find docker container with id: {container_id}")
+                return 'not found'
+        except docker.errors.NotFound as e:
+            bt.logging.error(f"Could not find docker container with id: {container_id}")
+            return 'not found'
+
+    def connect_to_mongo():
+        # Connect to your MongoDB - replace uri with your MongoDB URI
+        client = pymongo.MongoClient("your_mongodb_uri")
+        db = client.your_database_name  # Replace with your database name
+        return db.your_collection_name  # Replace with your collection name
+
+    # Rest of your code to gather metadata
+    metadata = {
+        'n': get_network_id(config.network),
+        'mt': get_model_id(config.model_type),
+        'v': VERSION,
+        'di': get_docker_image_version(),
+        'ri': graph_search.get_run_id(),  # Assuming graph_search is defined
+    }
+
+    # Connect to MongoDB and get the collection
+    collection = connect_to_mongo()
+
+    try:
+        # Insert or update metadata in MongoDB
+        uid = metadata.get('n')  # Assuming 'n' is a unique identifier
+        collection.update_one({'n': uid}, {"$set": metadata}, upsert=True)
+        bt.logging.info((f"Stored miner metadata: {metadata}")
+    except Exception as e:
+        bt.logging.info((f"Failed to store miner metadata: {e}")
+
 
 def background_task(subtensor, wallet, netuid):
     # Your task code here
