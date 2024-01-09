@@ -20,6 +20,7 @@ import os
 import time
 import argparse
 import docker
+import schedule
 import traceback
 import typing
 import torch
@@ -41,6 +42,13 @@ from insights.protocol import (
 )
 from neurons.remote_config import MinerConfig
 
+def background_task(subtensor, wallet, netuid):
+    # Your task code here
+    """ Commit information about metadata """
+    subtensor.commit(wallet, netuid, "Testing the commit capability! Hello, world!")
+    uid = subtensor.get_uid_for_hotkey_on_subnet(wallet.hotkey.ss58_address, netuid)
+    data = subtensor.get_commitment(netuid, uid)
+    print(data)
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -114,12 +122,6 @@ def main(config):
     """ image_details = container.image.tags """
 
     """ print(f"Image Details: {image_details}") """
-
-    """ Commit information about metadata """
-    subtensor.commit(wallet, 59, "Testing the commit capability! Hello, world!")
-    uid = subtensor.get_uid_for_hotkey_on_subnet(wallet.hotkey.ss58_address, 59)
-    data = subtensor.get_commitment(59, uid)
-    print(data)
 
     bt.logging.info(f"Waiting for graph model to sync with blockchain.")
     is_synced=False
@@ -279,8 +281,10 @@ def main(config):
     # This loop maintains the miner's operations until intentionally stopped.
     bt.logging.info(f"Starting main loop")
     step = 0
+    schedule.every(120).seconds.do(background_task, subtensor, wallet, 59)
     while True:
         try:
+            schedule.run_pending()
             if subtensor.block - last_updated_block >= 100:
                 bt.logging.trace(f"Setting miner weight")
                 # find the uid that matches config.wallet.hotkey [meta.axons[N].hotkey == config.wallet.hotkey]
