@@ -63,11 +63,10 @@ def store_miner_metadata(subtensor, wallet, uid, netuid):
         return metadata, json.dumps(metadata)
 
     def connect_to_mongo():
-        # MongoDB connection setup
-        client = pymongo.MongoClient("your_mongodb_uri")
-        return client.your_database.your_collection
+        client = pymongo.MongoClient("mongodb://localhost:27017/")
+        return client.miner.metadata
 
-    collection = connect_to_mongo()  # Connect to MongoDB collection
+    collection = connect_to_mongo()
 
     try:
         current_metadata_json = subtensor.get_commitment(netuid, uid)
@@ -75,12 +74,19 @@ def store_miner_metadata(subtensor, wallet, uid, netuid):
             metadata = json.loads(current_metadata_json)
             if subtensor.block - metadata['b'] < 100:
                 bt.logging.info(f"Miner metadata already stored: {metadata}")
+                existing_record = collection.find_one({"uid": uid})
+
+                if existing_record is None:
+                    collection.insert_one(metadata)
+                    bt.logging.info(f"Inserted new metadata record into MongoDB: {metadata}")
+                else:
+                    bt.logging.info(f"Metadata record already exists in MongoDB for block: {metadata['b']}")
+
                 return
 
         metadata, metadata_json = get_json_metadata()
         subtensor.commit(wallet, netuid, metadata_json)
 
-        # Save metadata to MongoDB
         collection.update_one({'uid': uid, 'netuid': netuid}, {"$set": metadata}, upsert=True)
 
         bt.logging.info(f"Stored miner metadata: {metadata}")
@@ -93,10 +99,10 @@ def store_miner_metadata(subtensor, wallet, uid, netuid):
 def background_task(subtensor, wallet, netuid):
     # Your task code here
     """ Commit information about metadata """
-    subtensor.commit(wallet, netuid, "Testing the commit capability! Hello, world!")
     uid = subtensor.get_uid_for_hotkey_on_subnet(wallet.hotkey.ss58_address, netuid)
-    data = subtensor.get_commitment(netuid, uid)
-    print(data)
+    store_miner_metadata(subtensor, wallet, uid, netuid)
+    """ data = subtensor.get_commitment(netuid, uid) """
+    """ print(data) """
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -229,7 +235,12 @@ def main(config):
     my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
     bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
 
-
+    def is_valid_json(json_string):
+        try:
+            json.loads(json_string)
+            return True
+        except json.JSONDecodeError:
+            return False
     def store_miner_metadata():
         def get_json_metadata():
             graph_search = get_graph_search(config.network, config.model_type)
@@ -250,7 +261,7 @@ def main(config):
             current_metadata_json = None
             try:
                 current_metadata_json = subtensor.get_commitment(config.netuid, my_subnet_uid)
-                if current_metadata_json is None:
+                if current_metadata_json is None or not is_valid_json(current_metadata_json):
                     metadata, metadata_json = get_json_metadata()
                     subtensor.commit(wallet, config.netuid, metadata_json)
                     bt.logging.info(f"Stored miner metadata: {metadata}")
@@ -463,7 +474,7 @@ if __name__ == "__main__":
         config.subtensor.chain_endpoint = None
         config.wallet.hotkey = 'default'
         config.wallet.name = 'miner'
-        config.netuid = 1
+        config.netuid = 59
 
         config.miner_set_weights = True
 
