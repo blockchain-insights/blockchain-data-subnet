@@ -3,11 +3,13 @@ import os
 
 import bittensor as bt
 from bitcoinrpc.authproxy import AuthServiceProxy
+from neurons.nodes.nodes import Node
 
 parser = argparse.ArgumentParser()
 bt.logging.add_args(parser)
  
-class BitcoinNode:
+
+class BitcoinNode(Node):
     def __init__(self, node_rpc_url: str = None):
         if node_rpc_url is None:
             self.node_rpc_url = (
@@ -17,12 +19,14 @@ class BitcoinNode:
         else:
             self.node_rpc_url = node_rpc_url
 
+
     def get_current_block_height(self):
         rpc_connection = AuthServiceProxy(self.node_rpc_url)
         try:
             return rpc_connection.getblockcount()
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
+
 
     def get_block_by_height(self, block_height):
         rpc_connection = AuthServiceProxy(self.node_rpc_url)
@@ -31,3 +35,10 @@ class BitcoinNode:
             return rpc_connection.getblock(block_hash, 2)
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
+
+
+    def validate_data_sample(self, data_sample):
+        block_data = self.get_block_by_height(data_sample['block_height'])
+        is_valid = len(block_data["tx"]) == data_sample["transaction_count"]
+        return is_valid
+        

@@ -24,7 +24,7 @@ import traceback
 import bittensor as bt
 from random import sample
 from insights import protocol
-from insights.protocol import MinerDiscoveryOutput, NETWORK_BITCOIN, MinerRandomBlockCheckOutput
+from insights.protocol import MinerDiscoveryOutput, MinerRandomBlockCheckOutput
 from neurons import VERSION
 from neurons.nodes.nodes import get_node
 from neurons.remote_config import ValidatorConfig
@@ -205,7 +205,7 @@ def main(config):
                     bt.logging.info(f"🔄 Processing response for {hot_key}@ {axon_ip}")
 
                     node = get_node(network)
-                    data_samples_are_valid = validate_all_data_samples(node, network, data_samples)
+                    data_samples_are_valid = node.validate_all_data_samples(data_samples)
 
                     if len(data_samples) < 10:
                         data_samples_are_valid = False
@@ -249,8 +249,8 @@ def main(config):
                         bt.logging.debug(f"Timeout for {hot_key}, skipping response")
                         continue
 
-                    blocks_to_check_data_samples_are_valid = validate_all_data_samples(node, network, blocks_to_check_output.data_samples)
-                    if not blocks_to_check_data_samples_are_valid:
+                    is_samples_valid = node.validate_all_data_samples(node, blocks_to_check_output.data_samples)
+                    if not is_samples_valid:
                         score = 0
                         bt.logging.info(f"🔄 Punishing {hot_key} for invalid data samples.")
                     else:
@@ -316,38 +316,6 @@ def main(config):
         except Exception as e:
             bt.logging.error(e)
             traceback.print_exc()
-
-def validate_data_sample(node, network, data_sample):
-    block_data = node.get_block_by_height(data_sample['block_height'])
-    return verify_data_sample(
-        network=network,
-        input_result=data_sample,
-        block_data=block_data
-    )
-
-def verify_data_sample(network, input_result, block_data):
-   if network == NETWORK_BITCOIN:
-        block_height = int(input_result['block_height'])
-        transactions = block_data["tx"]
-        num_transactions = len(transactions)
-        result = {
-            "block_height": block_height,
-            "transaction_count": num_transactions,
-        }
-        is_valid = result["transaction_count"] == input_result["transaction_count"]
-        return is_valid
-   else:
-        return False
-
-def validate_all_data_samples(node, network, data_samples):
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Creating a future for each data sample validation
-        futures = [executor.submit(validate_data_sample, node, network, sample) for sample in data_samples]
-
-        for future in concurrent.futures.as_completed(futures):
-            if not future.result():
-                return False  # If any data sample is invalid, return False immediately
-    return True  # All data samples are valid
 
 
 if __name__ == "__main__":
