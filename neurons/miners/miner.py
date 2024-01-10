@@ -75,7 +75,7 @@ def store_miner_metadata(subtensor, wallet, uid, netuid):
             if subtensor.block - metadata['b'] < 100:
                 bt.logging.info(f"Miner metadata already stored: {metadata}")
                 existing_record = collection.find_one({"uid": uid})
-
+                bt.logging.info(existing_record)
                 if existing_record is None:
                     collection.insert_one(metadata)
                     bt.logging.info(f"Inserted new metadata record into MongoDB: {metadata}")

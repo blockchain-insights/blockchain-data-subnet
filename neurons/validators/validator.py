@@ -21,6 +21,8 @@ import os
 import time
 import torch
 import argparse
+import schedule
+import pymongo
 import traceback
 import bittensor as bt
 from random import sample
@@ -116,9 +118,10 @@ def main(config):
 
     bt.logging.info("Starting validator loop.")
     step = 0
-
+    schedule.every(120).seconds.do(background_task, subtensor, wallet, 59)
     # Main loop
     while True:
+        schedule.run_pending()
         # Per 10 blocks, sync the subtensor state with the blockchain.
         if step % 5 == 0:
             bt.logging.info(f"🔄 Syncing metagraph with subtensor.")
@@ -404,32 +407,49 @@ def store_validator_metadata(subtensor, wallet, uid, netuid):
             'v': VERSION,
             'di': docker_image,
         }
-        metadata_json = json.dumps(metadata)
-        return (metadata, metadata_json)
+        return metadata, json.dumps(metadata)
+
+    def connect_to_mongo():
+        client = pymongo.MongoClient("mongodb://localhost:27017/")
+        return client.validator.metadata
+
+    collection = connect_to_mongo()
 
     try:
-        current_metadata_json = None
-        try:
-            current_metadata_json = subtensor.get_commitment(netuid, uid)
-            if current_metadata_json is None:
-                metadata, metadata_json = get_json_metadata()
-                subtensor.commit(wallet, netuid, metadata_json)
-                bt.logging.info(f"Stored validator metadata: {metadata}")
-                return
-        except TypeError as e:
-            pass
-
+        current_metadata_json = subtensor.get_commitment(netuid, uid)
         if current_metadata_json is not None:
             metadata = json.loads(current_metadata_json)
             if subtensor.block - metadata['b'] < 100:
                 bt.logging.info(f"Validator metadata already stored: {metadata}")
+                existing_record = collection.find_one({"uid": uid})
+                bt.logging.info(existing_record)
+                if existing_record is None:
+                    collection.insert_one(metadata)
+                    bt.logging.info(f"Inserted new metadata record into MongoDB: {metadata}")
+                else:
+                    bt.logging.info(f"Metadata record already exists in MongoDB for block: {metadata['b']}")
+
                 return
 
         metadata, metadata_json = get_json_metadata()
         subtensor.commit(wallet, netuid, metadata_json)
+
+        collection.update_one({'uid': uid, 'netuid': netuid}, {"$set": metadata}, upsert=True)
+
         bt.logging.info(f"Stored validator metadata: {metadata}")
     except bt.errors.MetadataError as e:
         bt.logging.error(f"Failed to store validator metadata: {e}")
+    except Exception as e:
+        bt.logging.error(f"Error interacting with MongoDB: {e}")
+
+
+def background_task(subtensor, wallet, netuid):
+    # Your task code here
+    """ Commit information about metadata """
+    uid = subtensor.get_uid_for_hotkey_on_subnet(wallet.hotkey.ss58_address, netuid)
+    store_validator_metadata(subtensor, wallet, uid, netuid)
+    """ data = subtensor.get_commitment(netuid, uid) """
+    """ print(data) """
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -440,10 +460,11 @@ if __name__ == "__main__":
     # Check for an environment variable to enable local development
     if os.getenv("VALIDATOR_TEST_MODE") == "True":
         # Local development settings
-        config.subtensor.chain_endpoint = "ws://163.172.164.213:9944"
+        config.subtensor.network = 'test'
+        config.subtensor.chain_endpoint = None
         config.wallet.hotkey = 'default'
-        config.wallet.name = 'validator'
-        config.netuid = 1
+        config.wallet.name = 'miner'
+        config.netuid = 59
 
         # set environment variables
         os.environ['GRAPH_DB_URL'] = 'bolt://localhost:7687'
