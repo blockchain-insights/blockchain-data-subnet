@@ -1,23 +1,12 @@
-import argparse
+from bitcoinrpc.authproxy import AuthServiceProxy
+from neurons.nodes.base_node import Node
+
 import os
 
-import bittensor as bt
-from bitcoinrpc.authproxy import AuthServiceProxy
-from neurons.nodes.nodes import Node
-
-parser = argparse.ArgumentParser()
-bt.logging.add_args(parser)
- 
 
 class BitcoinNode(Node):
-    def __init__(self, node_rpc_url: str = None):
-        if node_rpc_url is None:
-            self.node_rpc_url = (
-                os.environ.get("BITCOIN_NODE_RPC_URL")
-                or "http://bitcoinrpc:rpcpassword@127.0.0.1:8332"
-            )
-        else:
-            self.node_rpc_url = node_rpc_url
+    def __init__(self):
+        self.node_rpc_url = os.environ.get("BITCOIN_NODE_RPC_URL", "http://bitcoinrpc:rpcpassword@127.0.0.1:8332")
 
 
     def get_current_block_height(self):

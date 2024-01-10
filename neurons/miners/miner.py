@@ -27,7 +27,7 @@ from random import sample
 from insights import protocol
 from neurons import VERSION
 from neurons.miners import blacklists
-from neurons.nodes.nodes import get_node
+from neurons.nodes.base_node import Node
 from neurons.miners.bitcoin.funds_flow.graph_indexer import GraphIndexer
 from neurons.miners.query import (
     execute_query_proxy,
@@ -116,7 +116,7 @@ def main(config):
         try:
             graph_indexer = GraphIndexer(config.graph_db_url)
             if config.network == 'bitcoin':
-                node = get_node(config.network)
+                node = Node.create_from_network(config.network)
                 latest_block_height =  node.get_current_block_height()
                 current_block_height = graph_indexer.get_latest_block_number()
                 if latest_block_height - current_block_height < 100:

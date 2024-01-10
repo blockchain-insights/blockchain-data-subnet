@@ -26,7 +26,7 @@ from random import sample
 from insights import protocol
 from insights.protocol import MinerDiscoveryOutput, MinerRandomBlockCheckOutput
 from neurons import VERSION
-from neurons.nodes.nodes import get_node
+from neurons.nodes.base_node import Node
 from neurons.remote_config import ValidatorConfig
 from neurons.validators.miner_registry import MinerRegistryManager
 from neurons.validators.scoring import Scorer
@@ -204,11 +204,8 @@ def main(config):
 
                     bt.logging.info(f"🔄 Processing response for {hot_key}@ {axon_ip}")
 
-                    node = get_node(network)
+                    node = Node.create_from_network(network)
                     data_samples_are_valid = node.validate_all_data_samples(data_samples)
-
-                    if len(data_samples) < 10:
-                        data_samples_are_valid = False
 
                     if network not in block_height_cache:
                         block_height_cache[network] = node.get_current_block_height()
@@ -250,11 +247,11 @@ def main(config):
                         continue
 
                     is_samples_valid = node.validate_all_data_samples(node, blocks_to_check_output.data_samples)
-                    if not is_samples_valid:
+                    if is_samples_valid:
+                        bt.logging.info(f"🔄 Rewarding {hot_key} for valid data samples.")
+                    else:
                         score = 0
                         bt.logging.info(f"🔄 Punishing {hot_key} for invalid data samples.")
-                    else:
-                        bt.logging.info(f"🔄 Rewarding {hot_key} for valid data samples.")
 
                     scores[dendrites_to_query[index]] = config.alpha * scores[dendrites_to_query[index]] + (1 - config.alpha) * score
 
@@ -325,7 +322,7 @@ if __name__ == "__main__":
     config = get_config()
 
     # Check for an environment variable to enable local development
-    if os.getenv("VALIDATOR_TEST_MODE") == "True":
+    if os.getenv("VALIDATOR_TEST_MODE", "False") == "True":
         # Local development settings
         config.subtensor.network = 'test'
         config.subtensor.chain_endpoint = None
