@@ -34,15 +34,23 @@ def send_email(recipient_email: str, username: str, password: str):
 @router.post("/register", response_model=UserRegistrationModel)
 async def register_user(user: UserRegistrationModel):
     user_collection = get_user_collection()
-    if user_collection.find_one({"username": user.username}):
+
+    # Check for duplicate username
+    if user_collection.find_one({"userName": user.userName}):
         raise HTTPException(status_code=400, detail="Username already registered")
 
+    # Check for duplicate email
+    if user.email and user_collection.find_one({"email": user.email}):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
     hashed_password = get_password_hash(user.password)
-    user_dict = user.dict()
+    user_dict = user.dict(exclude_unset=True)
     user_dict.update({"password": hashed_password})
     user_collection.insert_one(user_dict)
 
-    # Send email
-    send_email(user.email, user.username, user.password)
+    # Send email if email is provided
+    if user.email:
+        send_email(user.email, user.userName, user.password)
 
     return user
+
