@@ -1,5 +1,5 @@
 from bitcoinrpc.authproxy import AuthServiceProxy
-from neurons.nodes.base_node import Node
+from neurons.nodes.abstract_node import Node
 
 import os
 

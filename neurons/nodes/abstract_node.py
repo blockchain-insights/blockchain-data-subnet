@@ -1,6 +1,4 @@
 from insights.protocol import NETWORK_BITCOIN, NETWORK_DOGE
-from neurons.nodes.bitcoin.node import BitcoinNode
-from neurons.nodes.doge.node import DogeNode
 
 from abc import ABC, abstractmethod
 
@@ -38,18 +36,3 @@ class Node(ABC):
                 if not future.result():
                     return False  # If any data sample is invalid, return False immediately
         return True 
-
-
-    @classmethod
-    def create_from_network(cls, network: str) -> 'Node':
-        node_class = {
-            NETWORK_BITCOIN: BitcoinNode,
-            NETWORK_DOGE : DogeNode
-            # Add other networks and their corresponding classes as needed
-        }.get(network)
-
-        if node_class is None:
-            raise ValueError(f"Unsupported network: {network}")
-        
-        return node_class()
-    

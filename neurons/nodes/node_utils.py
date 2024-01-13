@@ -1,6 +1,8 @@
 from Crypto.Hash import SHA256, RIPEMD160
 import base58
-
+from insights.protocol import NETWORK_BITCOIN, NETWORK_DOGE
+from neurons.nodes.implementations.bitcoin import BitcoinNode
+from neurons.nodes.implementations.doge import DogeNode
 
 def pubkey_to_address(pubkey: str) -> str:
     # Step 1: SHA-256 hashing on the public key
@@ -40,3 +42,15 @@ def create_p2sh_address(hashed_script, mainnet=True):
     payload = version_byte + hashed_script
     checksum = SHA256.new(SHA256.new(payload).digest()).digest()[:4]
     return base58.b58encode(payload + checksum).decode()
+
+def create_node_from_network( network: str):
+    node_class = {
+        NETWORK_BITCOIN: BitcoinNode,
+        NETWORK_DOGE : DogeNode
+        # Add other networks and their corresponding classes as needed
+    }.get(network)
+
+    if node_class is None:
+        raise ValueError(f"Unsupported network: {network}")
+    
+    return node_class()   

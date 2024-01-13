@@ -1,4 +1,4 @@
-from neurons.nodes.base_node import Node
+from neurons.nodes.abstract_node import Node
 
 class DogeNode(Node):
     def __init__(self):

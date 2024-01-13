@@ -26,10 +26,11 @@ from random import sample
 from insights import protocol
 from insights.protocol import MinerDiscoveryOutput, MinerRandomBlockCheckOutput
 from neurons import VERSION
-from neurons.nodes.base_node import Node
+from neurons.nodes.node_utils import create_node_from_network
 from neurons.remote_config import ValidatorConfig
 from neurons.validators.miner_registry import MinerRegistryManager
 from neurons.validators.scoring import Scorer
+
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -204,7 +205,7 @@ def main(config):
 
                     bt.logging.info(f"🔄 Processing response for {hot_key}@ {axon_ip}")
 
-                    node = Node.create_from_network(network)
+                    node = create_node_from_network(network)
                     data_samples_are_valid = node.validate_all_data_samples(data_samples)
 
                     if network not in block_height_cache:

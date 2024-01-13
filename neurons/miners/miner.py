@@ -39,7 +39,7 @@ from insights.protocol import (
     MinerDiscoveryMetadata,
 )
 from neurons.remote_config import MinerConfig
-
+from neurons.nodes.node_utils import create_node_from_network
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -116,7 +116,7 @@ def main(config):
         try:
             graph_indexer = GraphIndexer(config.graph_db_url)
             if config.network == 'bitcoin':
-                node = Node.create_from_network(config.network)
+                node = create_node_from_network(config.network)
                 latest_block_height =  node.get_current_block_height()
                 current_block_height = graph_indexer.get_latest_block_number()
                 if latest_block_height - current_block_height < 100:
