@@ -115,7 +115,6 @@ def main(config):
         if step % 5 == 0:
             bt.logging.info(f"🔄 Syncing metagraph with subtensor.")
             metagraph.sync(subtensor = subtensor)
-
         # If there are more uids than scores, add more weights.
         # Get the uids of all miners in the network.
         uids = metagraph.uids.tolist()
@@ -392,10 +391,11 @@ if __name__ == "__main__":
     # Check for an environment variable to enable local development
     if os.getenv("VALIDATOR_TEST_MODE") == "True":
         # Local development settings
-        config.subtensor.chain_endpoint = "ws://163.172.164.213:9944"
-        config.wallet.hotkey = 'default2'
+        config.subtensor.network = 'test'
+        config.subtensor.chain_endpoint = None
+        config.wallet.hotkey = 'default'
         config.wallet.name = 'validator'
-        config.netuid = 1
+        config.netuid = 59
 
         # set environment variables
         os.environ['GRAPH_DB_URL'] = 'bolt://localhost:7687'
