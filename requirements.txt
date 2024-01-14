@@ -11,3 +11,13 @@ python-dotenv
 sqlalchemy
 requests
 urllib3
+fastapi
+sendgrid
+django-sendgrid-webhook
+pymongo
+passlib
+uvicorn
+pydantic
+jose
+python-multipart
+

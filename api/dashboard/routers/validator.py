@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-from neurons.api.dashboard.database import get_user_collection
-from neurons.api.dashboard.models import User, Validator
-from neurons.api.dashboard.security import oauth2_scheme
+from api.dashboard.database import get_user_collection
+from api.dashboard.models import Validator
+from api.dashboard.security import oauth2_scheme
 
 router = APIRouter()
 

@@ -1,10 +1,9 @@
-from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.security import OAuth2PasswordRequestForm
-from neurons.api.dashboard.models import User
-from neurons.api.dashboard.database import get_user_collection
-from neurons.api.dashboard.security import get_password_hash
-import smtplib
-from email.message import EmailMessage
+from fastapi import APIRouter, HTTPException
+from api.dashboard.models import User
+from api.dashboard.database import get_user_collection
+from api.dashboard.security import get_password_hash
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 from typing import Optional
 from pydantic import EmailStr
 import os
@@ -17,19 +16,21 @@ router = APIRouter()
 class UserRegistrationModel(User):
     email: Optional[EmailStr] = None
 
+
 def send_email(recipient_email: str, username: str, password: str):
-    msg = EmailMessage()
-    msg.set_content(f"Hello {username},\n\nYour account has been created.\nUsername: {username}\nPassword: {password}")
+    message = Mail(
+        from_email=os.getenv("EMAIL_SENDER"),
+        to_emails=recipient_email,
+        subject='Your Account Details',
+        plain_text_content=f'Hello {username},\n\nYour account has been created.\nUsername: {username}\nPassword: {password}'
+    )
 
-    msg['Subject'] = 'Your Account Details'
-    msg['From'] = os.getenv("EMAIL_SENDER")
-    msg['To'] = recipient_email
-
-    # Send the message via SMTP server
-    with smtplib.SMTP(os.getenv("SMTP_SERVER"), os.getenv("SMTP_PORT")) as server:
-        server.starttls()
-        server.login(os.getenv("EMAIL_SENDER"), os.getenv("EMAIL_PASSWORD"))
-        server.send_message(msg)
+    try:
+        sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
+        response = sg.send(message)
+        print(response.status_code, response.body, response.headers)
+    except Exception as e:
+        print(e)
 
 @router.post("/register", response_model=UserRegistrationModel)
 async def register_user(user: UserRegistrationModel):
@@ -50,7 +51,7 @@ async def register_user(user: UserRegistrationModel):
 
     # Send email if email is provided
     if user.email:
-        send_email(user.email, user.userName, user.password)
+       send_email(user.email, user.userName, user.password)
 
     return user
 
