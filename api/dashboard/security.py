@@ -30,4 +30,6 @@ def verify_password(plain_password, hashed_password):
     Returns:
     bool: True if the password matches, False otherwise.
     """
+    print(plain_password)
+    print(hashed_password)
     return pwd_context.verify(plain_password, hashed_password)

@@ -22,12 +22,36 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def verify_access_token(token: str = Depends(oauth2_scheme)) -> str:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        # Token is valid, return the username
+        return username
+    except JWTError:
+        raise credentials_exception
+
+# Example of an endpoint that requires authentication
+@router.get("/protected-endpoint", tags=["authenticated"])
+async def protected_endpoint(current_user: str = Depends(verify_access_token)):
+    # Do something with the authenticated user
+    return {"message": "You are authenticated", "user": current_user}
+
+
 @router.post("/token", tags=["authentication"])
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user_collection = get_user_collection()
-    user = user_collection.find_one({"username": form_data.username})
+    user = user_collection.find_one({"userName": form_data.username})
 
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+    if not user or not verify_password(form_data.password, user["password"]):
+        print(form_data.password)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -35,11 +59,11 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user["username"]}, expires_delta=access_token_expires)
-    refresh_token = create_access_token(data={"sub": user["username"]}, expires_delta=timedelta(days=7))
+    access_token = create_access_token(data={"sub": user["userName"]}, expires_delta=access_token_expires)
+    refresh_token = create_access_token(data={"sub": user["userName"]}, expires_delta=timedelta(days=7))
 
     # Save refresh_token in DB for the user
-    user_collection.update_one({"username": user["username"]}, {"$set": {"refresh_token": refresh_token}})
+    user_collection.update_one({"userName": user["userName"]}, {"$set": {"refresh_token": refresh_token}})
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
@@ -59,7 +83,7 @@ async def refresh_access_token(refresh_token: str = Depends(oauth2_scheme)):
         raise credentials_exception
 
     user_collection = get_user_collection()
-    user = user_collection.find_one({"username": username, "refresh_token": refresh_token})
+    user = user_collection.find_one({"userName": username, "refresh_token": refresh_token})
     if user is None:
         raise credentials_exception
 
