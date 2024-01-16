@@ -144,7 +144,7 @@ miner    default  1      True   0.00000  0.00000  0.00000    0.00000    0.00000 
 Edit `NETUID=1` and `CHAIN_ENDPOINT=ws://127.0.0.1:9946` arguments in `template/__init__.py` to match your created subnetwork. Or run the subnet miner and subnet validator directly with the `netuid` and `chain_endpoint` arguments.
 ```bash
 # Run the miner with the netuid and chain_endpoint arguments.
-python neurons/miner.py --netuid 1 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug
+python neurons/hotkey.py --netuid 1 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug
 >> 2023-08-08 16:58:11.223 |       INFO       | Running miner for subnet: 1 on network: ws://127.0.0.1:9946 with config: ...
 
 # Run the validator with the netuid and chain_endpoint arguments.

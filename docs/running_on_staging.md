@@ -165,7 +165,7 @@ miner    default  1      True   0.00000  0.00000  0.00000    0.00000    0.00000 
 ## 13. Run subnet miner and subnet validator
 Make sure to specify your subnetwork parameters.
 ```bash
-python neurons/miner.py --netuid 1 --subtensor.chain_endpoint ws://127.0.0.1:9946 --wallet.name miner --wallet.hotkey default --logging.debug
+python neurons/hotkey.py --netuid 1 --subtensor.chain_endpoint ws://127.0.0.1:9946 --wallet.name miner --wallet.hotkey default --logging.debug
 >> ... # Run logs.
 python neurons/validator.py --netuid 1 --subtensor.chain_endpoint ws://127.0.0.1:9946 --wallet.name validator --wallet.hotkey default --logging.debug
 >> ... # Run logs.

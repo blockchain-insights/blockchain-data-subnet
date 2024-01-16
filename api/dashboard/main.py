@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import user, auth, miner, validator
+from routers import user, auth, hotkey, validator
 
 app = FastAPI()
 

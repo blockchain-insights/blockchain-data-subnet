@@ -1,15 +1,15 @@
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-from api.dashboard.database import get_user_collection
-from api.dashboard.models import Miner
+from infrastructure.database import get_user_collection
+from infrastructure.models import Hotkey
 from api.dashboard.routers.auth import verify_access_token
-from api.dashboard.security import oauth2_scheme
+from infrastructure.security import oauth2_scheme
 
 router = APIRouter()
 
-@router.post("/user/{user_id}/add_miner", tags=["authenticated"])
-async def add_miner(user_id: str, miner: Miner, token: str = Depends(verify_access_token)):
+@router.post("/user/{user_id}/add_hotkey/{hotkey_type}", tags=["authenticated"])
+async def add_miner(user_id: str, hotkey: Hotkey, token: str = Depends(verify_access_token)):
     try:
         oid = ObjectId(user_id)
     except:
@@ -19,11 +19,11 @@ async def add_miner(user_id: str, miner: Miner, token: str = Depends(verify_acce
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user_collection.update_one({"_id": oid}, {"$push": {"miners": miner.dict()}})
-    return {"message": "Miner added successfully"}
+    user_collection.update_one({"_id": oid}, {"$push": {"hotkeys": hotkey.dict()}})
+    return {"message": "Hotkey added successfully"}
 
-@router.delete("/user/{user_id}/delete_miner/{miner_hotkey}", tags=["authenticated"])
-async def delete_miner(user_id: str, miner_hotkey: str, token: str = Depends(verify_access_token)):
+@router.delete("/user/{user_id}/delete_hotkey/{hotkey}", tags=["authenticated"])
+async def delete_hotkey(user_id: str, hotkey: str, token: str = Depends(verify_access_token)):
     try:
         oid = ObjectId(user_id)
     except:
@@ -31,7 +31,7 @@ async def delete_miner(user_id: str, miner_hotkey: str, token: str = Depends(ver
     user_collection = get_user_collection()
     result = user_collection.update_one(
         {"_id": oid},
-        {"$pull": {"miners": {"minerHotkey": miner_hotkey}}}
+        {"$pull": {"hotkeys": {"hotkey": hotkey}}}
     )
 
     if result.modified_count == 0:
@@ -39,7 +39,7 @@ async def delete_miner(user_id: str, miner_hotkey: str, token: str = Depends(ver
 
     return {"message": "Miner deleted successfully"}
 
-@router.get("/user/{user_id}/miners",  response_model=List[Miner], tags=["authenticated"])
+@router.get("/user/{user_id}/hotkeys/{hotkey_type}",  response_model=List[Hotkey], tags=["authenticated"])
 async def get_miners_for_user(user_id: str, token: str = Depends(verify_access_token)):
     try:
         oid = ObjectId(user_id)
@@ -52,7 +52,15 @@ async def get_miners_for_user(user_id: str, token: str = Depends(verify_access_t
 
     return user.get("miners", [])
 
-@router.get("/miners", response_model=List[Miner], tags=["authenticated"])
+@router.get("/hotkeys/{hotkey_type}", response_model=List[Hotkey], tags=["authenticated"])
+async def get_all_miners(token: str = Depends(verify_access_token)):
+    user_collection = get_user_collection()
+    users = user_collection.find({})
+
+    all_miners = [miner for user in users for miner in user.get("miners", [])]
+    return all_miners
+
+@router.get("/hotkeys", response_model=List[Hotkey], tags=["authenticated"])
 async def get_all_miners(token: str = Depends(verify_access_token)):
     user_collection = get_user_collection()
     users = user_collection.find({})

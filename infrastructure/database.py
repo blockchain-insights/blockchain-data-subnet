@@ -5,3 +5,5 @@ db = client["dashboard"]
 
 def get_user_collection():
     return db["users"]
+def get_hotkey_collection():
+    return db["hotkeys"]

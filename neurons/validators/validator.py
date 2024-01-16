@@ -21,9 +21,14 @@ import os
 import time
 import torch
 import argparse
+import schedule
 import traceback
 import bittensor as bt
 from random import sample
+
+from pymongo import MongoClient
+
+from infrastructure.database import get_hotkey_collection
 from insights import protocol
 from insights.protocol import MinerDiscoveryOutput, NETWORK_BITCOIN, MinerRandomBlockCheckOutput, MAX_MULTIPLE_IPS, \
     MAX_MULTIPLE_RUN_ID, get_network_by_id
@@ -32,6 +37,24 @@ from neurons.nodes.nodes import get_node
 from neurons.remote_config import ValidatorConfig
 from neurons.storage import store_validator_metadata, get_miners_metadata
 from neurons.validators.scoring import Scorer
+
+def dump_hotkeys_to_mongo():
+    def replace_hotkeys(hotkey_list):
+        # Establish connection to MongoDB
+        hotkeys_collection = get_hotkey_collection()
+        # Clear existing hotkeys
+        hotkeys_collection.delete_many({})
+        # Prepare new hotkeys for insertion
+        hotkeys_to_insert = [hotkey.dict() for hotkey in hotkey_list]
+        # Add new hotkeys to the collection
+        if hotkeys_to_insert:
+            hotkeys_collection.insert_many(hotkeys_to_insert)
+
+def background_task(subtensor):
+    metagraph = subtensor.metagraph(config.netuid)
+    metagraph.sync(subtensor=subtensor)
+    bt.logging.info(metagraph.neurons)
+    bt.logging.info(metagraph.axons)
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -108,9 +131,10 @@ def main(config):
     step = 0
 
     store_validator_metadata(config, wallet, subtensor)
-
+    schedule.every(bt.__blocktime__).seconds.do(background_task, subtensor)
     # Main loop
     while True:
+        schedule.run_pending()
         # Per 10 blocks, sync the subtensor state with the blockchain.
         if step % 5 == 0:
             bt.logging.info(f"🔄 Syncing metagraph with subtensor.")
