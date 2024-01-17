@@ -35,7 +35,7 @@ from insights.protocol import MinerDiscoveryOutput, NETWORK_BITCOIN, MinerRandom
 from neurons import VERSION
 from neurons.nodes.nodes import get_node
 from neurons.remote_config import ValidatorConfig
-from neurons.storage import store_validator_metadata, get_miners_metadata
+from neurons.storage import store_validator_metadata, get_miners_metadata, get_validator_metadata
 from neurons.validators.scoring import Scorer
 
 def dump_hotkeys_to_mongo():
@@ -53,8 +53,26 @@ def dump_hotkeys_to_mongo():
 def background_task(subtensor):
     metagraph = subtensor.metagraph(config.netuid)
     metagraph.sync(subtensor=subtensor)
-    bt.logging.info(metagraph.neurons)
-    bt.logging.info(metagraph.axons)
+    # Extracting miners and validators from neurons
+    min_stake_for_validator = 20000  # Minimum stake for a neuron to be considered a validator
+    #miner_hotkeys = [neuron.hotkey for neuron in metagraph.neurons
+    #                 if neuron.axon_info.ip != '0.0.0.0' and neuron.stake < min_stake_for_validator]
+    #validator_hotkeys = [neuron.hotkey for neuron in metagraph.neurons
+    #                     if neuron.axon_info.ip == '0.0.0.0' or neuron.stake >= min_stake_for_validator]
+    #bt.logging.info(miner_hotkeys)
+    #bt.logging.info(validator_hotkeys)
+    # Get miner metadata
+    miners_metadata = get_miners_metadata(config, subtensor, metagraph)
+    print("Miners Metadata:")
+    for hotkey, metadata in miners_metadata.items():
+        print(f"Hotkey: {hotkey}, Metadata: {metadata}")
+
+    # Get validator metadata
+    validators_metadata = get_validator_metadata(config, subtensor, metagraph)
+    print("\nValidators Metadata:")
+    for hotkey, metadata in validators_metadata.items():
+        print(f"Hotkey: {hotkey}, Metadata: {metadata}")
+
 
 def get_config():
     parser = argparse.ArgumentParser()

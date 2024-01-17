@@ -66,6 +66,7 @@ def get_miners_metadata(config, subtensor, metagraph):
         if axon.is_serving:
             try:
                 hotkey = axon.hotkey
+                print("Miner Hotkey:", hotkey)
                 uid = subtensor.get_uid_for_hotkey_on_subnet(hotkey, config.netuid)
                 metadata_str = subtensor.get_commitment(config.netuid, uid)
                 if metadata_str is not None:
@@ -94,6 +95,7 @@ def get_validator_metadata(config, subtensor, metagraph):
     for neuron in metagraph.neurons:
         if neuron.axon_info.ip == '0.0.0.0':
             hotkey = neuron.hotkey
+            print("Validator Hotkey:", hotkey)
             try:
                 uid = subtensor.get_uid_for_hotkey_on_subnet(hotkey, config.netuid)
                 metadata_str = subtensor.get_commitment(config.netuid, uid)
