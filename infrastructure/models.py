@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, validator
 
 class HotkeyType(Enum):
     MINER = "miner"
@@ -10,7 +10,12 @@ class HotkeyType(Enum):
 class Hotkey(BaseModel):
     hotkey: str
     hotkeyMetadata: Optional[str]
-    hotkeyType: HotkeyType
+    hotkeyType: str
+    @validator('hotkeyType', pre=True)
+    def convert_type_to_string(cls, v):
+        if isinstance(v, HotkeyType):
+            return v.value
+        return v
 
 class User(BaseModel):
     userName: str

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
-from api.dashboard.database import get_user_collection
-from api.dashboard.security import verify_password
+from infrastructure.database import get_user_collection
+from infrastructure.security import verify_password
 from typing import Optional
 import os
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from api.dashboard.models import User
-from api.dashboard.database import get_user_collection
-from api.dashboard.security import get_password_hash
+from infrastructure.models import User
+from infrastructure.database import get_user_collection
+from infrastructure.security import get_password_hash
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from typing import Optional

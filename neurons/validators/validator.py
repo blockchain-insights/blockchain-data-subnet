@@ -26,8 +26,6 @@ import traceback
 import bittensor as bt
 from random import sample
 
-from pymongo import MongoClient
-
 from infrastructure.database import get_hotkey_collection
 from insights import protocol
 from insights.protocol import MinerDiscoveryOutput, NETWORK_BITCOIN, MinerRandomBlockCheckOutput, MAX_MULTIPLE_IPS, \
@@ -38,40 +36,16 @@ from neurons.remote_config import ValidatorConfig
 from neurons.storage import store_validator_metadata, get_miners_metadata, get_validator_metadata
 from neurons.validators.scoring import Scorer
 
-def dump_hotkeys_to_mongo():
-    def replace_hotkeys(hotkey_list):
-        # Establish connection to MongoDB
-        hotkeys_collection = get_hotkey_collection()
-        # Clear existing hotkeys
-        hotkeys_collection.delete_many({})
-        # Prepare new hotkeys for insertion
-        hotkeys_to_insert = [hotkey.dict() for hotkey in hotkey_list]
-        # Add new hotkeys to the collection
-        if hotkeys_to_insert:
-            hotkeys_collection.insert_many(hotkeys_to_insert)
-
-def background_task(subtensor):
-    metagraph = subtensor.metagraph(config.netuid)
-    metagraph.sync(subtensor=subtensor)
-    # Extracting miners and validators from neurons
-    min_stake_for_validator = 20000  # Minimum stake for a neuron to be considered a validator
-    #miner_hotkeys = [neuron.hotkey for neuron in metagraph.neurons
-    #                 if neuron.axon_info.ip != '0.0.0.0' and neuron.stake < min_stake_for_validator]
-    #validator_hotkeys = [neuron.hotkey for neuron in metagraph.neurons
-    #                     if neuron.axon_info.ip == '0.0.0.0' or neuron.stake >= min_stake_for_validator]
-    #bt.logging.info(miner_hotkeys)
-    #bt.logging.info(validator_hotkeys)
-    # Get miner metadata
-    miners_metadata = get_miners_metadata(config, subtensor, metagraph)
-    print("Miners Metadata:")
-    for hotkey, metadata in miners_metadata.items():
-        print(f"Hotkey: {hotkey}, Metadata: {metadata}")
-
-    # Get validator metadata
-    validators_metadata = get_validator_metadata(config, subtensor, metagraph)
-    print("\nValidators Metadata:")
-    for hotkey, metadata in validators_metadata.items():
-        print(f"Hotkey: {hotkey}, Metadata: {metadata}")
+def dump_hotkeys_to_mongo(hotkey_list):
+    # Establish connection to MongoDB
+    hotkeys_collection = get_hotkey_collection()  # replace with your collection name
+    # Clear existing hotkeys
+    hotkeys_collection.delete_many({})
+    # Prepare new hotkeys for insertion
+    hotkeys_to_insert = [hotkey.dict() for hotkey in hotkey_list]
+    # Add new hotkeys to the collection
+    if hotkeys_to_insert:
+        hotkeys_collection.insert_many(hotkeys_to_insert)
 
 
 def get_config():
@@ -149,10 +123,8 @@ def main(config):
     step = 0
 
     store_validator_metadata(config, wallet, subtensor)
-    schedule.every(bt.__blocktime__).seconds.do(background_task, subtensor)
     # Main loop
     while True:
-        schedule.run_pending()
         # Per 10 blocks, sync the subtensor state with the blockchain.
         if step % 5 == 0:
             bt.logging.info(f"🔄 Syncing metagraph with subtensor.")
