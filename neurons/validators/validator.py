@@ -21,7 +21,6 @@ import os
 import time
 import torch
 import argparse
-import schedule
 import traceback
 import bittensor as bt
 from random import sample
