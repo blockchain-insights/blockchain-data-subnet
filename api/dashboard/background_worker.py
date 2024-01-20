@@ -5,11 +5,14 @@ import time
 import bittensor as bt
 from infrastructure.database import get_hotkey_collection
 from infrastructure.models import Hotkey, HotkeyType
+from neurons.remote_config import MinerConfig
 from neurons.storage import get_miners_metadata, get_validator_metadata
 from neurons.validators.validator import get_config
 
 def background_task():
     config = get_config()
+    miner_config = MinerConfig()
+    miner_config.load_and_get_config_values()
 
     if os.getenv("API_TEST_MODE") == "True":
         # Local development settings
@@ -19,22 +22,18 @@ def background_task():
         config.wallet.name = 'validator'
         config.netuid = 59
 
-        # set environment variables
-        os.environ['GRAPH_DB_URL'] = 'bolt://localhost:7687'
-        os.environ['GRAPH_DB_USER'] = 'user'
-        os.environ['GRAPH_DB_PASSWORD'] = 'pwd'
-
     subtensor = bt.subtensor(config=config)
     metagraph = subtensor.metagraph(config.netuid)
     metagraph.sync(subtensor=subtensor)
     bt.logging.info("metagraph sync complete", config.netuid)
-    min_stake_for_validator = 20000  # Minimum stake for a neuron to be considered a validator
+    min_stake_for_validator = miner_config.stake_threshold  # Minimum stake for a neuron to be considered a validator
+    bt.logging.info(miner_config.stake_threshold)
 
     # Extract miner and validator hotkeys
     miner_hotkeys = [neuron.hotkey for neuron in metagraph.neurons
-                     if neuron.axon_info.ip != '0.0.0.0' and neuron.stake < min_stake_for_validator]
+                     if neuron.stake < min_stake_for_validator]
     validator_hotkeys = [neuron.hotkey for neuron in metagraph.neurons
-                         if neuron.axon_info.ip == '0.0.0.0' or neuron.stake >= min_stake_for_validator]
+                         if neuron.stake >= min_stake_for_validator]
     bt.logging.info(miner_hotkeys)
     bt.logging.info(validator_hotkeys)
     # Get miner and validator metadata
@@ -80,7 +79,7 @@ def dump_hotkeys_to_mongo(hotkey_list):
         bt.logging.info(f"An error occurred: {e}")
 def run_scheduler():
     # Schedule your task (e.g., every 10 minutes)
-    schedule.every(1).minutes.do(background_task)
+    schedule.every(bt.__blocktime__).seconds.do(background_task)
 
     while True:
         schedule.run_pending()

@@ -38,13 +38,6 @@ def verify_access_token(token: str = Depends(oauth2_scheme)) -> str:
     except JWTError:
         raise credentials_exception
 
-# Example of an endpoint that requires authentication
-@router.get("/protected-endpoint", tags=["authenticated"])
-async def protected_endpoint(current_user: str = Depends(verify_access_token)):
-    # Do something with the authenticated user
-    return {"message": "You are authenticated", "user": current_user}
-
-
 @router.post("/token", tags=["authentication"])
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user_collection = get_user_collection()
