@@ -162,4 +162,5 @@ cython_debug/
 #.idea/
 /neurons/validators/test_miner_data_samples.db
 /neurons/validators/miner_registry.db
+/neurons/miner.json
 /*.db
