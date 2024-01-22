@@ -35,18 +35,6 @@ from neurons.remote_config import ValidatorConfig
 from neurons.storage import store_validator_metadata, get_miners_metadata, get_validator_metadata
 from neurons.validators.scoring import Scorer
 
-def dump_hotkeys_to_mongo(hotkey_list):
-    # Establish connection to MongoDB
-    hotkeys_collection = get_hotkey_collection()  # replace with your collection name
-    # Clear existing hotkeys
-    hotkeys_collection.delete_many({})
-    # Prepare new hotkeys for insertion
-    hotkeys_to_insert = [hotkey.dict() for hotkey in hotkey_list]
-    # Add new hotkeys to the collection
-    if hotkeys_to_insert:
-        hotkeys_collection.insert_many(hotkeys_to_insert)
-
-
 def get_config():
     parser = argparse.ArgumentParser()
     parser.add_argument(
