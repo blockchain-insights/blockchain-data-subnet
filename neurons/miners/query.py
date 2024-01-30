@@ -1,14 +1,17 @@
 from neurons.miners.bitcoin.funds_flow.graph_search import (
-    GraphSearch as BitcoinGraphSearch,
+    GraphSearch as UtxoGraphSearch,
 )
 
-from insights.protocol import NETWORK_BITCOIN, MODEL_TYPE_FUNDS_FLOW
+from insights.protocol import NETWORK_BITCOIN, NETWORK_DOGE, MODEL_TYPE_FUNDS_FLOW
 
 def get_graph_search(network, model_type):
     switch = {
         NETWORK_BITCOIN: {
-            MODEL_TYPE_FUNDS_FLOW: lambda: BitcoinGraphSearch(),
+            MODEL_TYPE_FUNDS_FLOW: lambda: UtxoGraphSearch(),
         },
+        NETWORK_DOGE: {
+            MODEL_TYPE_FUNDS_FLOW: lambda: UtxoGraphSearch()
+        }
     }
 
     network_switch = switch.get(network, {})

@@ -37,6 +37,7 @@ from neurons.miners.query import (
 from insights.protocol import (
     MODEL_TYPE_FUNDS_FLOW,
     NETWORK_BITCOIN,
+    NETWORK_DOGE,
     MinerDiscoveryMetadata
 )
 from neurons.remote_config import MinerConfig
@@ -89,9 +90,9 @@ def wait_for_blocks_sync(config):
 
         try:
             graph_indexer = GraphIndexer(config.graph_db_url)
-            if config.network == 'bitcoin':
+            if config.network == 'bitcoin' or config.network == 'doge':
                 node = get_node(config.network)
-                latest_block_height =  node.get_current_block_height()
+                latest_block_height = node.get_current_block_height()
                 current_block_height = graph_indexer.get_latest_block_number()
                 if latest_block_height - current_block_height < 100:
                     is_synced = True
