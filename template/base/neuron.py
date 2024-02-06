@@ -98,6 +98,7 @@ class BaseNeuron(ABC):
             f"Running neuron on subnet: {self.config.netuid} with uid {self.uid} using network: {self.subtensor.chain_endpoint}"
         )
         self.step = 0
+        self.block_metadata_update = 0
 
     @abstractmethod
     async def forward(self, synapse: bt.Synapse) -> bt.Synapse: ...
@@ -118,6 +119,10 @@ class BaseNeuron(ABC):
         if self.should_set_weights():
             self.set_weights()
 
+        if self.should_store_metadata():
+            self.store_metadata()
+            self.block_metadata_update = self.block
+        
         # Always save state.
         self.save_state()
 
@@ -140,6 +145,14 @@ class BaseNeuron(ABC):
         return (
             self.block - self.metagraph.last_update[self.uid]
         ) > self.config.neuron.epoch_length
+    
+    def should_store_metadata(self):
+        """
+        Check if enough epoch blocks have elapsed since the last message send.
+        """
+        return (
+            self.block - self.block_metadata_update
+        ) > self.config.neuron.epoch_length
 
     def should_set_weights(self) -> bool:
         # Don't set weights on initialization.
@@ -154,6 +167,9 @@ class BaseNeuron(ABC):
         return (
             self.block - self.metagraph.last_update[self.uid]
         ) > self.config.neuron.epoch_length
+
+    def store_metadata(self):
+        raise NotImplementedError()
 
     def save_state(self):
         bt.logging.warning(

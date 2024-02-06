@@ -204,6 +204,8 @@ class Miner(BaseMinerNeuron):
 
     def resync_metagraph(self):
         super(Miner, self).resync_metagraph()
+    
+    def store_metadata(self):
         store_miner_metadata(self.config, self.graph_search, self.wallet)
 
     def save_state(self):

@@ -192,17 +192,18 @@ class Validator(BaseValidatorNeuron):
         self.miners_metadata = get_miners_metadata(self.config, self.metagraph)
         self.validator_config = ValidatorConfig().load_and_get_config_values()
         self.scorer = Scorer(self.validator_config)
-
         self.networks = self.validator_config.get_networks()
         self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
-        validator_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
-        store_validator_metadata(self.config, self.wallet, validator_uid)
 
     def resync_metagraph(self):
         super(Validator, self).resync_metagraph()
         self.sync_validator()
 
+    def store_metadata(self):
+        validator_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
+        store_validator_metadata(self.config, self.wallet, validator_uid)
+ 
 
 
 
