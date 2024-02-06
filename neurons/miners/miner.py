@@ -107,10 +107,7 @@ class Miner(BaseMinerNeuron):
         bt.logging.info(f"Axon created: {self.axon}")
 
         self.graph_search = get_graph_search(config)
-
         self.miner_config = MinerConfig().load_and_get_config_values()        
-
-
     
     async def block_check(self, synapse: protocol.BlockCheck) -> protocol.BlockCheck:
         try:
@@ -189,6 +186,15 @@ class Miner(BaseMinerNeuron):
 
     def resync_metagraph(self):
         super(Miner, self).resync_metagraph()
+        log =  (f'Step:{self.step} | '
+                    f'Block:{self.metagraph.block.item()} | '
+                    f'Stake:{self.metagraph.S[self.uid]:.2f} | '
+                    f'Rank:{self.metagraph.R[self.uid]:.4f} | '
+                    f'Trust:{self.metagraph.T[self.uid]} | '
+                    f'Consensus:{self.metagraph.C[self.uid]:.4f} | '
+                    f'Incentive:{self.metagraph.I[self.uid]:.4f} | '
+                    f'Emission:{self.metagraph.E[self.uid]:.4f}')
+        bt.logging.info(log)
     
     def store_metadata(self):
         store_miner_metadata(self.config, self.graph_search, self.wallet)
@@ -236,7 +242,4 @@ if __name__ == "__main__":
 
     wait_for_blocks_sync()
     with Miner() as miner:
-        while True:
-            bt.logging.info(f"Miner running")
-            time.sleep(bt.__blocktime__*2)
-
+        time.sleep(bt.__blocktime__*2)
