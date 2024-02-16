@@ -15,7 +15,7 @@
 
 ### Table of Contents <!-- omit in toc -->
 - [Overview](#Blockchain-insights-overview)
-- [Instalation & Configuration](#instalation)
+- [Installation & Configuration](#installation)
 - [Development Roadmap](#Project-roadmap)
 - [High Level Architecture](#High-level-architecture)
 - [License](#license)
@@ -40,8 +40,8 @@ Blockchain Insights Subnet is an innovative project focusing on transforming raw
   - **Bitcoin-like UTXO Blockchains:** Integration with Bitcoin and other UTXO-based blockchains (etc. Bitcoin, Litecoin, Dogecoin and more).
   - **Ethereum and EVM-Compatible Blockchains:** Compatibility with Ethereum, including Layer 2 solutions (etc. Ethereum, Avax, Polygon, Arbitrum and more).
 ---
-## Instalation
-Instalation files and instructions can be found in the [blockchain data subnet ops](https://github.com/blockchain-insights/blockchain-data-subnet-ops) repository.
+## Installation
+Installation files and instructions can be found in the [blockchain data subnet ops](https://github.com/blockchain-insights/blockchain-data-subnet-ops) repository.
 
 ## Project Roadmap
 Development of the Blockchain Insights Subnet is divided into four streams, each with its own objectives and milestones. These streams are:
