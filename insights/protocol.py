@@ -22,6 +22,9 @@ NETWORK_ETHEREUM_ID = 3
 MAX_MULTIPLE_RUN_ID = 9
 MAX_MULTIPLE_IPS = 9
 
+def get_networks():
+    return [NETWORK_BITCOIN]
+
 def get_network_by_id(id):
     return {
         NETWORK_BITCOIN_ID: NETWORK_BITCOIN,
@@ -42,6 +45,19 @@ def get_model_id(model_type):
         MODEL_TYPE_FUNDS_FLOW: MODEL_TYPE_FUNDS_FLOW_ID
     }.get(model_type)
 
+def get_default_model_by_network(network):
+    return {
+        NETWORK_BITCOIN : MODEL_TYPE_FUNDS_FLOW,
+        NETWORK_DOGE : MODEL_TYPE_FUNDS_FLOW,
+        NETWORK_ETHEREUM: MODEL_TYPE_FUNDS_FLOW
+    }.get(network)
+
+def get_supported_model_by_network(network):
+    return {
+        NETWORK_BITCOIN : [MODEL_TYPE_FUNDS_FLOW],
+        NETWORK_DOGE : [MODEL_TYPE_FUNDS_FLOW],
+        NETWORK_ETHEREUM: [MODEL_TYPE_FUNDS_FLOW]
+    }.get(network)
 
 class DiscoveryMetadata(BaseModel):
     network: str = None

@@ -32,6 +32,7 @@ from insights.protocol import DiscoveryOutput, MAX_MULTIPLE_IPS, \
 from neurons.remote_config import ValidatorConfig
 from neurons.nodes.factory import NodeFactory
 from neurons.storage import store_validator_metadata, get_miners_metadata
+from neurons.validators.api_server import ApiServer
 from neurons.validators.scoring import Scorer
 
 from neurons.validators.utils.utils import get_miner_distributions, count_hotkeys_per_ip, count_run_id_per_hotkey
@@ -47,10 +48,25 @@ class Validator(BaseValidatorNeuron):
         parser.add_argument(
             "--alpha", default=0.9, type=float, help="The weight moving average scoring.py."
         )
-
         parser.add_argument("--netuid", type=int, default=15, help="The chain subnet uid.")
         parser.add_argument("--dev", action=argparse.BooleanOptionalAction)
-
+        parser.add_argument(
+                    "--ngrok_domain",
+                    help=(
+                        "If set, expose the API over 'ngrok' to the specified domain."
+                    )
+                )
+        parser.add_argument(
+            "--api_json",
+            type=str,
+            default="neurons/validator/api.json",
+            help="A path to a a config file for the API."
+        )
+        parser.add_argument(
+            "--enable_api",
+            action="store_true",
+            help="If set, a callable API will be activated."
+        )
         bt.subtensor.add_args(parser)
         bt.logging.add_args(parser)
         bt.wallet.add_args(parser)
@@ -82,8 +98,21 @@ class Validator(BaseValidatorNeuron):
         
         super(Validator, self).__init__(config)
 
+        if config.enable_api:
+            self.api_server = ApiServer(
+                axon_port=8091,
+                forward_fn=self.query,
+                api_json=config.api_json,
+                ngrok_domain=config.ngrok_domain
+            )
+            self.api_server.start()
         self.sync_validator()
+        
 
+    async def query(self, request: protocol.Query) -> protocol.Query:
+        bt.logging.success('yeaaaaah')
+        request.output = [{'yeah': 'yoh'}]
+        return request
         
 
     def cross_validate(self, axon, node, start_block_height, last_block_height):
@@ -209,7 +238,8 @@ class Validator(BaseValidatorNeuron):
         self.sync_validator()
 
     def send_metadata(self):
-        store_validator_metadata(self.config, self.wallet, self.uid)
+        #store_validator_metadata(self.config, self.wallet, self.uid)
+        pass
 
 
 
