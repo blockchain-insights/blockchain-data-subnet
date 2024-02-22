@@ -87,11 +87,25 @@ class Validator(BaseValidatorNeuron):
         
 
     def cross_validate(self, axon, node, start_block_height, last_block_height, k=20):
-        if not last_block_height or last_block_height is None or start_block_height is None or not k:
-            return False, 0
+        try:
+            if start_block_height < 0 or last_block_height < 0:
+                bt.logging.debug("Negative block heights provided to cross_validate")
+                return False, 0
 
-        if (last_block_height+1-start_block_height) <  k:
-            bt.logging.debug("Miner block height is Invalid")
+            if not last_block_height or last_block_height is None or start_block_height is None or not k:
+                bt.logging.debug("Invalid block heights provided to cross_validate")
+                return False, 0
+
+            if last_block_height < node.get_current_block_height():
+                bt.logging.debug("Last block height provided is larger than current block height")
+                return False, 0
+
+            if (last_block_height+1-start_block_height) <  k:
+                bt.logging.debug("Miner block height is Invalid")
+                return False, 0
+
+        except Exception as e:
+            bt.logging.error(f"Exception in cross_validate: {e}")
             return False, 0
 
         blocks_to_check = random.sample(range(start_block_height, last_block_height + 1), k=k)
