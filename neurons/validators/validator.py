@@ -96,7 +96,7 @@ class Validator(BaseValidatorNeuron):
                 bt.logging.debug("Invalid block heights provided to cross_validate")
                 return False, 0
 
-            if last_block_height > node.get_current_block_height():
+            if last_block_height > node.get_current_block_height() + 3:
                 bt.logging.debug("Last block height provided is larger than current block height")
                 return False, 0
 
