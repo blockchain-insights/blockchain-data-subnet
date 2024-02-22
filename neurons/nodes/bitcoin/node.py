@@ -80,6 +80,15 @@ class BitcoinNode(Node):
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
 
+    def get_blockchain_headers(self):
+        rpc_connection = AuthServiceProxy(self.node_rpc_url)
+        try:
+            return rpc_connection.getblockchaininfo()['headers']
+        except Exception as e:
+            logger.error(f"RPC Provider with Error: {e}")
+        finally:
+            rpc_connection._AuthServiceProxy__conn.close()
+
     def get_transaction_by_hash(self, tx_hash):
         logger.error(f"get_transaction_by_hash not implemented for BitcoinNode")
         raise NotImplementedError()
