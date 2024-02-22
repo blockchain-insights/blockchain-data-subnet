@@ -114,3 +114,31 @@ class GraphSearch:
             if single_result is None or single_result[0] is None:
                 return None
             return single_result[0]
+
+    def get_schema(self):
+        with self.driver.session() as session:
+            nodes_result = session.run(
+                """
+                MATCH (APP_INTERNAL_EXEC_VAR)
+                RETURN DISTINCT
+                count(APP_INTERNAL_EXEC_VAR)  AS count,
+                labels(APP_INTERNAL_EXEC_VAR) AS labels,
+                keys(APP_INTERNAL_EXEC_VAR)   AS properties
+                """
+            )
+            nodes = nodes_result.single()
+
+            relations_result = session.run(
+                """
+                MATCH (APP_INTERNAL_EXEC_VAR)-[e]->(m)
+                RETURN DISTINCT count(e)  AS count,
+                labels(APP_INTERNAL_EXEC_VAR) AS startNodeLabels,
+                type(e)   AS label,
+                labels(m) AS endNodeLabels,
+                keys(e)   AS properties
+                """
+            )
+            relations = relations_result.single()
+
+            return nodes, relations
+

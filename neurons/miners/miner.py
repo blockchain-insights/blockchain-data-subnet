@@ -135,11 +135,13 @@ class Miner(BaseMinerNeuron):
             start_block = block_range['start_block_height']
             last_block = block_range['latest_block_height']
             run_id = self.graph_search.get_run_id()
+            schema = self.graph_search.get_schema()
 
             synapse.output = protocol.DiscoveryOutput(
                 metadata=protocol.DiscoveryMetadata(
                     network=self.config.network,
-                    model_type=self.config.model_type
+                    model_type=self.config.model_type,
+                    graph_schema=schema
                 ),
                 start_block_height=start_block,
                 block_height=last_block,
@@ -160,22 +162,6 @@ class Miner(BaseMinerNeuron):
             synapse.output = None
         return synapse
 
-    async def challenge(self, synapse: protocol.Challenge ) -> protocol.Challenge:
-        try:
-            bt.logging.info(f"challenge recieved: {synapse}")
-
-            synapse.output = self.graph_search.solve_challenge(
-                in_total_amount=synapse.in_total_amount,
-                out_total_amount=synapse.out_total_amount,
-                tx_id_last_4_chars=synapse.tx_id_last_4_chars
-            )
-            bt.logging.info(f"Serving miner challenge output: {synapse.output}")
-
-        except Exception as e:
-            bt.logging.error(traceback.format_exc())
-            synapse.output = None
-        return synapse
-
     async def block_check_blacklist(self, synapse: protocol.BlockCheck) -> typing.Tuple[bool, str]:
         return blacklist.base_blacklist(self, synapse=synapse)
 
@@ -184,9 +170,6 @@ class Miner(BaseMinerNeuron):
 
     async def query_blacklist(self, synapse: protocol.Query) -> typing.Tuple[bool, str]:
         return blacklist.query_blacklist(self, synapse=synapse)
-
-    async def challenge_blacklist(self, synapse: protocol.Challenge) -> typing.Tuple[bool, str]:
-        return blacklist.base_blacklist(self, synapse=synapse)
 
 
     def base_priority(self, synapse: bt.Synapse) -> float:
@@ -210,14 +193,81 @@ class Miner(BaseMinerNeuron):
     async def query_priority(self, synapse: protocol.Query) -> float:
         return self.base_priority(synapse=synapse)
 
-    async def challenge_priority(self, synapse: protocol.Challenge) -> float:
-        return self.base_priority(synapse=synapse)
-
     def resync_metagraph(self):
         super(Miner, self).resync_metagraph()
-    
-    def send_metadata(self):
         store_miner_metadata(self.config, self.graph_search, self.wallet)
+
+    def save_state(self):
+        #empty function to remove logging WARNING
+        pass
+
+    ### TO REMOVE AFTER MERGE WITH MAIN
+    async def deprecated_block_check_priority(self, synapse: protocol.MinerRandomBlockCheck) -> float:
+        return self.base_priority(synapse=synapse)
+
+    async def deprecated_discovery_priority(self, synapse: protocol.MinerDiscovery) -> float:
+        return self.base_priority(synapse=synapse)
+
+    async def deprecated_query_priority(self, synapse: protocol.MinerQuery) -> float:
+        return self.base_priority(synapse=synapse)
+    
+    async def deprecated_block_check_blacklist(self, synapse: protocol.MinerRandomBlockCheck) -> typing.Tuple[bool, str]:
+        return blacklist.base_blacklist(self, synapse=synapse)
+
+    async def deprecated_discovery_blacklist(self, synapse: protocol.MinerDiscovery) -> typing.Tuple[bool, str]:
+        return blacklist.discovery_blacklist(self, synapse=synapse)
+
+    async def deprecated_query_blacklist(self, synapse: protocol.MinerQuery) -> typing.Tuple[bool, str]:
+        return blacklist.query_blacklist(self, synapse=synapse)
+
+    async def deprecated_block_check(self, synapse: protocol.MinerRandomBlockCheck) -> protocol.MinerRandomBlockCheck:
+        try:
+            block_heights = synapse.blocks_to_check
+            data_samples = self.graph_search.get_block_transactions(block_heights)
+            synapse.output = protocol.MinerRandomBlockCheckOutput(
+                data_samples=data_samples,
+            )
+            bt.logging.info(f"Serving miner random block check output: {synapse.output}")
+        except Exception as e:
+            bt.logging.error(traceback.format_exc())
+            synapse.output = None
+        return synapse
+            
+    async def deprecated_discovery(self, synapse: protocol.MinerDiscovery ) -> protocol.MinerDiscovery:
+        try:
+            block_range = self.graph_search.get_block_range()
+            start_block = block_range['start_block_height']
+            last_block = block_range['latest_block_height']
+            run_id = self.graph_search.get_run_id()
+            block_heights = sample(range(start_block, last_block + 1), 10)
+            data_samples = self.graph_search.get_block_transactions(block_heights)
+
+            synapse.output = protocol.MinerDiscoveryOutput(
+                metadata=protocol.MinerDiscoveryMetadata(
+                    network=self.config.network,
+                    model_type=self.config.model_type,
+                ),
+                start_block_height=start_block,
+                block_height=last_block,
+                data_samples=data_samples,
+                run_id=run_id,
+                version=4
+            )
+            bt.logging.info(f"Serving miner discovery output: {synapse.output}")
+        except Exception as e:
+            bt.logging.error(traceback.format_exc())
+            synapse.output = None
+        return synapse
+
+    async def deprecated_query(self, synapse: protocol.MinerQuery ) -> protocol.MinerQuery:
+        try:
+            synapse.output = self.graph_search.execute_query(
+                network=synapse.network, query=synapse.query)
+        except Exception as e:
+            bt.logging.error(traceback.format_exc())
+            synapse.output = None
+        return synapse
+
 
 def wait_for_blocks_sync():
         is_synced=False
