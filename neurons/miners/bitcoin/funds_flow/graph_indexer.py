@@ -106,7 +106,7 @@ class GraphIndexer:
                             batch_vouts.append(
                                 {
                                     "tx_id": tx.tx_id,
-                                    "address": vout.address,
+                                    "address": vout.address if vout.address else f"unknown-{tx.tx_id}",
                                     "value_satoshi": vout.value_satoshi,
                                     "is_coinbase": tx.is_coinbase
                                     and index
