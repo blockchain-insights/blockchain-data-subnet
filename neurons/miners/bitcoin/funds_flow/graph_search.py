@@ -120,22 +120,27 @@ class GraphSearch:
             nodes_result = session.run(
                 """
                 MATCH (APP_INTERNAL_EXEC_VAR)
-                RETURN DISTINCT
+                WITH APP_INTERNAL_EXEC_VAR
+                LIMIT 10000
+                RETURN DISTINCT 
                 count(APP_INTERNAL_EXEC_VAR)  AS count,
                 labels(APP_INTERNAL_EXEC_VAR) AS labels,
-                keys(APP_INTERNAL_EXEC_VAR)   AS properties
+                keys(APP_INTERNAL_EXEC_VAR)   AS properties;
                 """
             )
             nodes = nodes_result.single()
 
             relations_result = session.run(
                 """
-                MATCH (APP_INTERNAL_EXEC_VAR)-[e]->(m)
-                RETURN DISTINCT count(e)  AS count,
-                labels(APP_INTERNAL_EXEC_VAR) AS startNodeLabels,
+                MATCH ()-[e]->()
+                WITH e
+                LIMIT 10000   // Adjust the limit to your desired number of relationships
+                RETURN DISTINCT 
+                count(e)  AS count,
+                labels(startNode(e)) AS startNodeLabels,
                 type(e)   AS label,
-                labels(m) AS endNodeLabels,
-                keys(e)   AS properties
+                labels(endNode(e)) AS endNodeLabels,
+                keys(e)   AS properties;
                 """
             )
             relations = relations_result.single()
