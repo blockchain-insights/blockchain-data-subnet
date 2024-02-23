@@ -128,13 +128,13 @@ class GraphSearch:
                 keys(APP_INTERNAL_EXEC_VAR)   AS properties;
                 """
             )
-            nodes = nodes_result.single()
+            nodes = process_query_results(nodes_result)
 
             relations_result = session.run(
                 """
                 MATCH ()-[e]->()
                 WITH e
-                LIMIT 10000   // Adjust the limit to your desired number of relationships
+                LIMIT 10000 
                 RETURN DISTINCT 
                 count(e)  AS count,
                 labels(startNode(e)) AS startNodeLabels,
@@ -143,7 +143,35 @@ class GraphSearch:
                 keys(e)   AS properties;
                 """
             )
-            relations = relations_result.single()
+            relations = process_query_results(relations_result)
 
-            return nodes, relations
+            return {'nodes': nodes, 'relations': relations}
 
+
+def process_query_results(results_cursor, exclude_fields=None):
+    """
+    Processes the results from a Cypher query execution and transforms them into a list of dictionaries.
+
+    Parameters:
+    - results_cursor: The cursor containing results from the graph query execution.
+    - exclude_fields: A list of field names to exclude from the results. Defaults to None.
+
+    Returns:
+    A list of dictionaries, each representing a record from the query results, excluding specified fields.
+    """
+    if exclude_fields is None:
+        exclude_fields = []
+
+    processed_results = []
+    for record in results_cursor:
+        record_dict = {}
+        for key in record.keys():
+            if key not in exclude_fields:
+                # Special handling for 'labels' and 'properties' to ensure they are lists
+                if key in ['labels', 'startNodeLabels', 'endNodeLabels', 'properties'] and not isinstance(record[key], list):
+                    record_dict[key] = [record[key]]
+                else:
+                    record_dict[key] = record[key]
+        processed_results.append(record_dict)
+
+    return processed_results
