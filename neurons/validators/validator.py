@@ -84,14 +84,38 @@ class Validator(BaseValidatorNeuron):
 
         self.sync_validator()
 
-        
-
-    def cross_validate(self, axon, node, start_block_height, last_block_height, k=20):
-        if not last_block_height or not start_block_height or not k:
-            return False, 0
-
-        if (last_block_height+1-start_block_height) <  k:
+    @staticmethod
+    def validate_blockchain_range(start_block_height, last_block_height, min_range_size, current_block_height):
+        if start_block_height is None or not isinstance(start_block_height, int):
+            bt.logging.debug("Invalid start block height provided to cross_validate")
+            return False
+        if last_block_height is None or not isinstance(last_block_height, int):
+            bt.logging.debug("Invalid last block height provided to cross_validate")
+            return False
+        if start_block_height <= 0 or last_block_height <= 0:
+            bt.logging.debug("Negative block heights provided to cross_validate")
+            return False
+        if start_block_height >= last_block_height:
+            bt.logging.debug("Start block height is greater than or equal to last block height in cross_validate")
+            return False
+        if not min_range_size:
+            bt.logging.debug("Parameter 'min_range_size' is not truthy in cross_validate")
+            return False
+        if last_block_height > current_block_height + 3:
+            bt.logging.debug("Last block height provided is larger than current block height")
+            return False
+        if (last_block_height + 1 - start_block_height) < min_range_size:
             bt.logging.debug("Miner block height is Invalid")
+            return False
+
+        return True
+
+    def cross_validate(self, axon, node, start_block_height, last_block_height, min_range_size=20):
+        current_block_height = node.get_current_block_height()
+        if current_block_height is None:
+            raise Exception("Failed to get current block height")
+
+        if not self.validate_blockchain_range(start_block_height, last_block_height, min_range_size, current_block_height):
             return False, 0
 
         blocks_to_check = random.sample(range(start_block_height, last_block_height + 1), k=k)
@@ -122,7 +146,11 @@ class Validator(BaseValidatorNeuron):
         multiple_ips = ip_per_hotkey[axon_ip] > MAX_MULTIPLE_IPS
         multiple_run_ids = run_id_per_hotkey[hot_key] > MAX_MULTIPLE_RUN_ID
 
-        cross_validation_result, response_time = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height)
+        try:
+            cross_validation_result, response_time = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height)
+        except Exception as e:
+            bt.logging.error(f"Cross-Validation: {hot_key=} Exception {e=} skipping response")
+            return None
 
         if cross_validation_result is None:
             bt.logging.debug(f"Cross-Validation: {hot_key=} Timeout skipping response")
