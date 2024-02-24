@@ -118,7 +118,7 @@ class Validator(BaseValidatorNeuron):
         if not self.validate_blockchain_range(start_block_height, last_block_height, min_range_size, current_block_height):
             return False, 0
 
-        blocks_to_check = random.sample(range(start_block_height, last_block_height + 1), k=k)
+        blocks_to_check = random.sample(range(start_block_height, last_block_height + 1), k=min_range_size)
         response = self.dendrite.query(
             axon,
             protocol.BlockCheck(blocks_to_check=blocks_to_check),
