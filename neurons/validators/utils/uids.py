@@ -55,3 +55,24 @@ def get_random_uids(
     k = max(1, min(len(candidate_uids), k))
     uids = torch.tensor(random.sample(candidate_uids, k))
     return uids
+
+def get_random_top_n(self, n: int = 25, exclude: List[int] = None) -> int:
+    candidate_uids = []
+    for uid in range(self.metagraph.n.item()):
+        uid_is_available = check_uid_availability(
+            self.metagraph, uid, self.config.neuron.vpermit_tao_limit
+        )
+        uid_is_not_excluded = exclude is None or uid not in exclude
+
+        if uid_is_available:
+            if uid_is_not_excluded:
+                candidate_uids.append(uid)
+    bt.logging.info(f'candidate {candidate_uids}')
+    bt.logging.info(f'scores {self.scores}, len={len(self.scores)}')
+    bt.logging.info(f'n={n}')
+    bt.logging.info(f'n {n}, metagraph weights {self.scores}, len = {len(self.scores[candidate_uids])}')
+    top_indices = torch.topk(self.scores[candidate_uids], k=n).indices
+
+    bt.logging.info(f"Top {n} indices: {top_indices}")
+    uid = random.sample(top_indices, 1)
+    return uid

@@ -10,6 +10,7 @@ from bittensor.axon import FastAPIThreadedServer
 from fastapi import  APIRouter
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Request
+from neurons.utils import is_malicious
 from pyngrok import ngrok
 import uvicorn
 
@@ -182,19 +183,23 @@ class ApiServer:
                 content={
                     "detail": f"Invalid Query. Query is empty",
                 })   
-
-        # Recreate the synapse with the source_lang.
-        request = Query(
+        elif is_malicious(request.query):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "detail": f"Invalid Query. Query is suspicious",
+                }) 
+        query = Query(
             network=request.network,
             model_type=model_type,
             query=request.query,
         )
 
 
-        response = await self.forward_fn(request)
-        bt.logging.debug(f"API: response.output {response.output}")
+        response = await self.forward_fn(query)
+        bt.logging.debug(f"API: response.output {query.output}")
         return JSONResponse(status_code=200,
-                            content={"detail": "success", "output": response.output})
+                            content={"detail": "success", "output": query.output})
 
     def start(self):
         self.fast_server.start()

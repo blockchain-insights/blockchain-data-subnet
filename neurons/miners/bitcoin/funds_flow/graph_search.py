@@ -3,7 +3,7 @@ import typing
 from neo4j import GraphDatabase
 
 from neurons.utils import is_malicious
-
+import bittensor as bt
 
 class GraphSearch:
     def __init__(
@@ -35,12 +35,14 @@ class GraphSearch:
         )
 
     def execute_query(self, query):
-        with self.driver.session() as session:
-            if not is_malicious(query):
-                result = session.run(query)
-                return result
-            else:
-                return None
+        if not is_malicious(query):
+            with self.driver.session() as session:
+                result = session.run(query).data()
+                bt.logging.info(f'result={result}')
+            return result
+        else:
+            bt.logging.warning(f'query={query} identify as malicious! Query will not be executed on memgraph!')
+            return None
 
 
     def get_run_id(self):

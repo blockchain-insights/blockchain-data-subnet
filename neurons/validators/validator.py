@@ -36,7 +36,7 @@ from neurons.validators.api_server import ApiServer
 from neurons.validators.scoring import Scorer
 
 from neurons.validators.utils.utils import get_miner_distributions, count_hotkeys_per_ip, count_run_id_per_hotkey
-from neurons.validators.utils.uids import get_random_uids
+from neurons.validators.utils.uids import get_random_uids, get_random_top_n
 
 from template.base.validator import BaseValidatorNeuron
 class Validator(BaseValidatorNeuron):
@@ -100,7 +100,7 @@ class Validator(BaseValidatorNeuron):
 
         if config.enable_api:
             self.api_server = ApiServer(
-                axon_port=8091,
+                axon_port=self.config.axon.port,
                 forward_fn=self.query,
                 api_json=config.api_json,
                 ngrok_domain=config.ngrok_domain
@@ -110,9 +110,20 @@ class Validator(BaseValidatorNeuron):
         
 
     async def query(self, request: protocol.Query) -> protocol.Query:
-        bt.logging.success('yeaaaaah')
-        request.output = [{'yeah': 'yoh'}]
-        return request
+        bt.logging.success(f'query {request} recieved')
+        available_uids = get_random_top_n(self, n=1)
+
+        filtered_axons = [self.metagraph.axons[uid] for uid in available_uids]
+
+
+        response = self.dendrite.query(
+            filtered_axons,
+            request,
+            deserialize=False,
+            timeout = self.validator_config.challenge_timeout,
+        )
+        bt.logging.info(response[0])
+        return response[0]
         
 
     def cross_validate(self, axon, node, start_block_height, last_block_height):

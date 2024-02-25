@@ -30,22 +30,7 @@ def query_blacklist(self, synapse: protocol.Query) -> typing.Tuple[bool, str]:
         is_blacklist, message = base_blacklist(self, synapse=synapse)
         if is_blacklist:
             return is_blacklist, message
-        
-        if  self.config.network != synapse.network:
-            bt.logging.trace(
-                f"Blacklisting hot key {hotkey} because of wrong blockchain"
-            )
-            return True, "Network not supported."
-        if self.config.model_type != synapse.model_type:
-            bt.logging.trace(
-                f"Blacklisting hot key {hotkey} because of wrong model type"
-            )
-            return True, "Model type not supported."
-        if not is_query_only(synapse.query):
-            bt.logging.trace(
-                f"Blacklisting hot key {hotkey} because of illegal cypher keywords"
-            )
-            return True, "Illegal cypher keywords."
+               
         return False, "Hotkey recognized!"
     
 def discovery_blacklist(self, synapse: protocol.Discovery) -> typing.Tuple[bool, str]:

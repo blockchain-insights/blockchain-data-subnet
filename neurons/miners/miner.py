@@ -153,8 +153,11 @@ class Miner(BaseMinerNeuron):
 
     async def query(self, synapse: protocol.Query ) -> protocol.Query:
         try:
-            synapse.output = self.graph_search.execute_query(
-                network=synapse.network, query=synapse.query)
+            bt.logging.info(f'query recieved: {synapse}')
+            response = self.graph_search.execute_query(query=synapse.query)
+            bt.logging.info(response)
+            bt.logging.info(type(response))
+            synapse.output = response
         except Exception as e:
             bt.logging.error(traceback.format_exc())
             synapse.output = None
@@ -183,6 +186,8 @@ class Miner(BaseMinerNeuron):
         return blacklist.discovery_blacklist(self, synapse=synapse)
 
     async def query_blacklist(self, synapse: protocol.Query) -> typing.Tuple[bool, str]:
+        bt.logging.info(f'query recieved: {synapse}')
+
         return blacklist.query_blacklist(self, synapse=synapse)
 
     async def challenge_blacklist(self, synapse: protocol.Challenge) -> typing.Tuple[bool, str]:
