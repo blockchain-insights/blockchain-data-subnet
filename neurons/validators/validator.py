@@ -171,9 +171,14 @@ class Validator(BaseValidatorNeuron):
             multiple_run_ids
         )
 
+        if self.validator_config.is_grace_period and response.version == 5:
+            score = max(score, self.validator_config.grace_threshold)
         return score
 
     async def forward(self):
+        # Add remote config
+        self.validator_config = ValidatorConfig().load_and_get_config_values()
+        ##
         available_uids = get_random_uids(self, self.config.neuron.sample_size)
 
         filtered_axons = [self.metagraph.axons[uid] for uid in available_uids]
