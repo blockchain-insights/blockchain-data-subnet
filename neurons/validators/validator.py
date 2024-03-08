@@ -185,7 +185,7 @@ class Validator(BaseValidatorNeuron):
                 multiple_run_ids
             )
             
-            score = ideal_score * (2 / (1 + np.exp(-(covered_blocks - 1e+5)/1e+5)))
+            score = ideal_score * (2 / (1 + np.exp(-(covered_blocks - self.validator_config.grace_threshold_block) / self.validator_config.grace_threshold_block)))
             # score = max(score, self.validator_config.grace_threshold)
         return score
 

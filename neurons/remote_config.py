@@ -128,8 +128,9 @@ class ValidatorConfig(RemoteConfig):
         self.blockchain_recency_weight = None
         self.is_grace_period = None
         
-        ## Added grace_threshold
-        self.grace_threshold = 0.0
+        ## Added grace_threshold_block
+        self.grace_threshold_block = 1e+5
+        
         
         self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://subnet-15-cfg.s3.fr-par.scw.cloud/validator3.json')
 
@@ -149,7 +150,7 @@ class ValidatorConfig(RemoteConfig):
         self.blockchain_recency_weight = self.get_config_value('blockchain_recency_weight',  {"bitcoin": 2, "doge": 2})
         self.is_grace_period = self.get_config_value('is_grace_period', False)
         
-        self.grace_threshold = self.get_config_value('grace_threshold', 0.0)
+        self.grace_threshold_block = self.get_config_value('grace_threshold_block', 1e+5)
         return self
 
     def get_blockchain_min_blocks(self, network):
