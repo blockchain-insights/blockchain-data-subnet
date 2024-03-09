@@ -95,7 +95,6 @@ class MinerConfig(RemoteConfig):
         self.config_url = os.getenv("MINER_REMOTE_CONFIG_URL", 'https://subnet-15-cfg.s3.fr-par.scw.cloud/miner.json')
         self.blockchain_sync_delta = None
         self.is_grace_period = None
-
     def load_and_get_config_values(self):
         # Load remote configuration
         self.load_remote_config()
@@ -108,7 +107,6 @@ class MinerConfig(RemoteConfig):
         self.whitelisted_hotkeys = self.get_config_value('whitelisted_hotkeys', ["5FFApaS75bv5pJHfAp2FVLBj9ZaXuFDjEypsaBNc1wCfe52v", "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN", "5EhvL1FVkQPpMjZX4MAADcW42i3xPSF1KiCpuaxTYVr28sux", "5CXRfP2ekFhe62r7q3vppRajJmGhTi7vwvb2yr79jveZ282w", "5DvTpiniW9s3APmHRYn8FroUWyfnLtrsid5Mtn5EwMXHN2ed", "5F4tQyWrhfGVcNhoqeiNsR6KjD4wMZ2kfhLj4oHYuyHbZAc3", "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8", "5HEo565WAy4Dbq3Sv271SAi7syBSofyfhhwRNjFNSM2gP9M2", "5FcXnzNo3mrqReTEY4ftkg5iXRBi61iyvM4W1bywZLRqfxAY", "5HNQURvmjjYhTSksi8Wfsw676b4owGwfLR2BFAQzG7H3HhYf", "5FLKnbMjHY8LarHZvk2q2RY9drWFbpxjAcR5x8tjr3GqtU6F", "5Gpt8XWFTXmKrRF1qaxcBQLvnPLpKi6Pt2XC4vVQR7gqNKtU"])
         self.blockchain_sync_delta = self.get_config_value('blockchain_sync_delta', {'bitcoin': 100, 'doge': 100})
         self.is_grace_period = self.get_config_value('is_grace_period', False)
-
         return self
     
     def get_blockchain_sync_delta(self, network):
@@ -128,8 +126,9 @@ class ValidatorConfig(RemoteConfig):
         self.blockchain_recency_weight = None
         self.is_grace_period = None
         
-        ## Added grace_threshold
-        self.grace_threshold = 0.0
+        ## Added grace_threshold_block
+        self.grace_threshold_score = 0.428844
+        
         
         self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://subnet-15-cfg.s3.fr-par.scw.cloud/validator3.json')
 
@@ -149,7 +148,7 @@ class ValidatorConfig(RemoteConfig):
         self.blockchain_recency_weight = self.get_config_value('blockchain_recency_weight',  {"bitcoin": 2, "doge": 2})
         self.is_grace_period = self.get_config_value('is_grace_period', False)
         
-        self.grace_threshold = self.get_config_value('grace_threshold', 0.0)
+        self.grace_threshold_score = self.get_config_value('grace_threshold_score', 0.428844)
         return self
 
     def get_blockchain_min_blocks(self, network):

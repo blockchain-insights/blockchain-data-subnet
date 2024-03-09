@@ -2,7 +2,6 @@ import bittensor as bt
 
 from insights import protocol
 from neurons.miners.query import is_query_only
-
 import typing
 import time
 

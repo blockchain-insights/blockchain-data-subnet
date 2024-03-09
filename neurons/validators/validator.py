@@ -24,6 +24,7 @@ import torch
 import bittensor as bt
 import os
 import yaml
+import numpy as np
 
 from insights import protocol
 from insights.protocol import DiscoveryOutput, BlockCheckOutput, MAX_MULTIPLE_IPS, \
@@ -160,19 +161,21 @@ class Validator(BaseValidatorNeuron):
             return 0
         bt.logging.info(f"Cross-Validation: {hot_key=} Test passed")
 
-        score = self.scorer.calculate_score(
-            network,
-            response_time,
-            start_block_height,
-            last_block_height,
-            self.block_height_cache[network],
-            miner_distribution,
-            multiple_ips,
-            multiple_run_ids
-        )
+        if self.validator_config.is_grace_period and response.version == 4:
+            score = max(score, self.validator_config.grace_threshold_score)
+            bt.logging.info(f"Miner version: {response.version}, setting score to: {score}")
+        else:
+            score = self.scorer.calculate_score(
+                network,
+                response_time,
+                start_block_height,
+                last_block_height,
+                self.block_height_cache[network],
+                miner_distribution,
+                multiple_ips,
+                multiple_run_ids
+            )
 
-        if self.validator_config.is_grace_period and response.version == 5:
-            score = max(score, self.validator_config.grace_threshold)
         return score
 
     async def forward(self):
@@ -220,6 +223,8 @@ class Validator(BaseValidatorNeuron):
             # Remove None reward as they represent timeout cross validation
             filtered_data = [(reward, uid) for reward, uid in zip(rewards, valid_uids) if reward is not None]
 
+            
+            
             if filtered_data:
                 rewards, valid_uids = zip(*filtered_data)
 
