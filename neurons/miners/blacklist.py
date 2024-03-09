@@ -2,7 +2,6 @@ import bittensor as bt
 
 from insights import protocol
 from neurons.miners.query import is_query_only
-import random
 import typing
 import time
 
@@ -136,6 +135,4 @@ def base_blacklist(self, synapse: bt.Synapse) -> typing.Tuple[bool, str]:
         return True, f"Blacklisted hotkey: {hotkey}"
     if hotkey not in self.miner_config.whitelisted_hotkeys and self.config.mode == 'prod':
         return True, f"Not Whitelisted hotkey: {hotkey}"
-    if hotkey not in self.miner_config.inmemory_hotkeys and random.random() < self.miner_config.penality_rate:
-        return True, f"Not Inmemory hotkey"
     return False, "Hotkey recognized"
