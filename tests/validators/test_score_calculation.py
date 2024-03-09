@@ -60,6 +60,9 @@ class TestScoreCalculation(unittest.TestCase):
             ("bitcoin", 42, 200001, 400001, 800001, network_distribution),
             ("bitcoin", 42, 400001, 600001, 800001, network_distribution),
             ("bitcoin", 42, 600001, 800001, 800001, network_distribution),
+
+            #finding grace score
+            ("bitcoin", 1, 783160, 835000, 835000, network_distribution),
         ])
 
         return cases
@@ -76,10 +79,7 @@ class TestScoreCalculation(unittest.TestCase):
                     indexed_start_block_height=start_block,
                     indexed_end_block_height=end_block,
                     blockchain_last_block_height=blockchain_height,
-                    data_samples_are_valid=True,
                     miner_distribution=miner_distribution,
-                    multiple_ips=False,
-                    multiple_run_ids=False,
                 )
 
                 result = {
