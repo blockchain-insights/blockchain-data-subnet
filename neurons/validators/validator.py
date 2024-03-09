@@ -161,32 +161,21 @@ class Validator(BaseValidatorNeuron):
             return 0
         bt.logging.info(f"Cross-Validation: {hot_key=} Test passed")
 
-        score = self.scorer.calculate_score(
-            network,
-            response_time,
-            start_block_height,
-            last_block_height,
-            self.block_height_cache[network],
-            miner_distribution,
-            multiple_ips,
-            multiple_run_ids
-        )
-
-        if self.validator_config.is_grace_period and response.version == 5:
-            covered_blocks = last_block_height - start_block_height
-            ideal_score = self.scorer.calculate_score(
+        if self.validator_config.is_grace_period and response.version == 4:
+            score = max(score, self.validator_config.grace_threshold)
+            bt.logging.info(f"Miner version: {response.version}, setting score to: {score}")
+        else:
+            score = self.scorer.calculate_score(
                 network,
                 response_time,
-                100,
-                self.block_height_cache[network],
+                start_block_height,
+                last_block_height,
                 self.block_height_cache[network],
                 miner_distribution,
                 multiple_ips,
                 multiple_run_ids
             )
-            
-            score = ideal_score * (2 / (1 + np.exp(-(covered_blocks - self.validator_config.grace_threshold_block) / self.validator_config.grace_threshold_block)))
-            # score = max(score, self.validator_config.grace_threshold)
+
         return score
 
     async def forward(self):
