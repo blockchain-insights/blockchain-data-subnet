@@ -162,7 +162,7 @@ class Validator(BaseValidatorNeuron):
         bt.logging.info(f"Cross-Validation: {hot_key=} Test passed")
 
         if self.validator_config.is_grace_period and response.version == 4:
-            score = min(score, self.validator_config.grace_threshold_score)
+            score = self.validator_config.grace_threshold_score
             bt.logging.info(f"Miner version: {response.version}, setting score to: {score}")
         else:
             score = self.scorer.calculate_score(
