@@ -11,12 +11,14 @@ class Metadata(BaseModel):
         return ','.join(f"{key}:{repr(getattr(self, key))}" for key in self.__dict__)
 
 class MinerMetadata(Metadata):
-    b: int
-    v: int
-    di: str
+    b: Optional[int]
+    v: Optional[int]
+    di: Optional[str]
     n: Optional[int]
     mt: Optional[int]
     ri: Optional[str]
+    sb: Optional[int] #start_block_height
+    lb: Optional[int] #end_block_height
 
     @staticmethod
     def from_compact(compact_str):
@@ -24,6 +26,7 @@ class MinerMetadata(Metadata):
         for item in compact_str.split(','):
             key, value = item.split(':', 1)
             data_dict[key] = value.strip("'")
+        bt.logging.info(data_dict)
         return MinerMetadata(**data_dict)
 
 class ValidatorMetadata(Metadata):
