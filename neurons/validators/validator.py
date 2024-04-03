@@ -127,9 +127,9 @@ class Validator(BaseValidatorNeuron):
         if ip_count > MAX_MINER_INSTANCE:
             bt.logging.info(f'Validation Failed: hotkey={hotkey} has {ip_count} ip')
             return False
-        if run_id_count > MAX_MINER_INSTANCE:
-            bt.logging.info(f'Validation Failed: hotkey={hotkey} has {run_id} run_id')
-            return False
+        # if run_id_count > MAX_MINER_INSTANCE:
+        #     bt.logging.info(f'Validation Failed: hotkey={hotkey} has {run_id} run_id')
+        #     return False
         if coldkey_count > MAX_MINER_INSTANCE:
             bt.logging.info(f'Validation Failed: Coldkey of hotkey={hotkey} has {coldkey_count} hotkeys')
             return False
