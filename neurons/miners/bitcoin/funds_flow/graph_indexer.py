@@ -1,6 +1,7 @@
 import os
 from neurons.setup_logger import setup_logger
 from neo4j import GraphDatabase
+import time
 
 logger = setup_logger("GraphIndexer")
 
@@ -173,6 +174,7 @@ class GraphIndexer:
         block_node = in_memory_graph["block"]
         transactions = block_node.transactions
 
+        time_taken_by_btc_full_node = 0
         with self.driver.session() as session:
             # Start a transaction
             transaction = session.begin_transaction()
@@ -186,7 +188,10 @@ class GraphIndexer:
                     batch_inputs = []
                     batch_outputs = []
                     for tx in batch_transactions:
+                        t1 = time.time()
                         in_amount_by_address, out_amount_by_address, input_addresses, output_addresses, in_total_amount, out_total_amount = _bitcoin_node.process_in_memory_txn_for_indexing(tx)
+                        t2 = time.time()
+                        time_taken_by_btc_full_node += t2 - t1
                         
                         inputs = [{"address": address, "amount": in_amount_by_address[address], "tx_id": tx.tx_id } for address in input_addresses]
                         outputs = [{"address": address, "amount": out_amount_by_address[address], "tx_id": tx.tx_id } for address in output_addresses]
@@ -237,6 +242,8 @@ class GraphIndexer:
                     )
 
                 transaction.commit()
+                
+                logger.info(f"Time taken by BTC full node: {time_taken_by_btc_full_node} seconds")
                 return True
 
             except Exception as e:
