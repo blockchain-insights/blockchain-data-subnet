@@ -5,29 +5,29 @@ class Scorer:
     def __init__(self, config: ValidatorConfig):
         self.config = config
 
-    def calculate_score(self, network,  process_time, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height, miner_distribution, uptime_avg):
+    def calculate_score(self, network,  process_time, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height, miner_distribution, uptime_scores):
         log =  (f'🔄 Network: {network} | ' \
                 f'Process time: {process_time:4f} | ' \
                 f'Indexed start block height: {indexed_start_block_height} | ' \
                 f'Indexed end block height: {indexed_end_block_height} | ' \
                 f'Blockchain last block height: {blockchain_last_block_height} | ' \
                 f'Miner distribution: {miner_distribution} | ' \
-                f'Uptime avg: {uptime_avg:.4f} |')
+                f'Uptime avg: {uptime_scores} |')
 
         bt.logging.info(log)
         process_time_score = self.calculate_process_time_score(process_time, self.config.discovery_timeout)
         block_height_score = self.calculate_block_height_score(network, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height)
         block_height_recency_score = self.calculate_block_height_recency_score(network, indexed_end_block_height, blockchain_last_block_height)
         blockchain_score = self.calculate_blockchain_weight(network, miner_distribution)
-        uptime_score = self.calculate_uptime_score(uptime_avg)
+        weighted_score = self.calculate_uptime_weighted_score(uptime_scores)
 
-        final_score = self.final_score(process_time_score, block_height_score, block_height_recency_score, blockchain_score, uptime_score)
+        final_score = self.final_score(process_time_score, block_height_score, block_height_recency_score, blockchain_score, weighted_score)
 
         log =  (f'🔄 Process time score: {process_time_score:.4f} | ' \
                 f'Block height score: {block_height_score:.4f} | ' \
                 f'Block height recency score: {block_height_recency_score:.4f} | ' \
                 f'Blockchain score: {blockchain_score:.4f} | ' \
-                f'Uptime score: {uptime_score:.4f} |' \
+                f'Uptime score: {weighted_score:.4f} |' \
                 f'Final score: {final_score:.4f} |')
         bt.logging.info(log)
         return final_score
@@ -106,5 +106,18 @@ class Scorer:
 
         return overall_score
 
-    def calculate_uptime_score(self, uptime_avg):
-        return uptime_avg
+    def calculate_uptime_weighted_score(self, scores):
+        weights = {
+            'daily': 0.2,
+            'weekly': 0.2,
+            'monthly': 0.2,
+            'quarterly': 0.2,
+            'yearly': 0.2
+        }
+        weighted_score = 0
+        total_weight = sum(weights.values())  # Ensure the sum of weights is 1
+        for period, score in scores.items():
+            weight = weights.get(period, 0)
+            weighted_score += (score * weight) / total_weight
+
+        return weighted_score

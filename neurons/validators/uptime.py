@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinload, subqueryload, joinedload
-from datetime import datetime
+from datetime import datetime, timedelta
 
 Base = declarative_base()
 
@@ -107,26 +107,56 @@ class MinerUptimeManager:
         if last_downtime:
             last_downtime.end_time = datetime.utcnow()
 
-    def calculate_uptime(self, uid, hotkey, period_seconds):
-        with self.session_scope() as session:
-            miner = session.query(MinerUptime).filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey).one()
-            active_period_end = miner.deregistered_date if miner.is_deregistered else datetime.utcnow()
-            active_period_start = miner.uptime_start
-            active_seconds = (active_period_end - active_period_start).total_seconds()
+    def calculate_proportional_uptime(self, session, miner, period_seconds):
+        current_time = datetime.utcnow()
+        period_start_time = current_time - timedelta(seconds=period_seconds)
 
-            total_downtime = sum(
-                (log.end_time - log.start_time).total_seconds()
-                for log in miner.downtimes
-                if log.start_time >= active_period_start and log.end_time and log.end_time <= active_period_end
-            )
+        # Determine the operational window within the requested period
+        active_start = max(miner.uptime_start, period_start_time)
+        active_end = miner.deregistered_date if miner.is_deregistered and miner.deregistered_date < current_time else current_time
 
-            actual_uptime_seconds = max(0, active_seconds - total_downtime)
-            return actual_uptime_seconds / active_seconds if active_seconds > 0 else 0
+        # If the miner has not been operational for the entire period, return 0
+        if miner.uptime_start > period_start_time or (miner.is_deregistered and miner.deregistered_date < period_start_time):
+            return 0
 
+        operational_seconds = (active_end - active_start).total_seconds()
+        if operational_seconds <= 0:
+            return 0  # No active operation in the requested period
+
+        # Sum up the downtime within this operational period
+        total_downtime_seconds = 0
+        for downtime in miner.downtimes:
+            if downtime.end_time:
+                downtime_start = max(downtime.start_time, active_start)
+                downtime_end = min(downtime.end_time, active_end)
+                if downtime_start < downtime_end:
+                    total_downtime_seconds += (downtime_end - downtime_start).total_seconds()
+
+        # Calculate actual uptime within the operational window
+        actual_uptime_seconds = max(0, operational_seconds - total_downtime_seconds)
+        return actual_uptime_seconds / operational_seconds if operational_seconds > 0 else 0
 
     def get_uptime_scores(self, uid, hotkey):
-        day = self.calculate_uptime(uid, hotkey, 86400)
-        week = self.calculate_uptime(uid, hotkey, 604800)
-        month = self.calculate_uptime(uid, hotkey, 2629746)
-        average = (day + week + month) / 3
-        return {'daily': day, 'weekly': week, 'monthly': month, 'average': average}
+        with self.session_scope() as session:
+            miner = session.query(MinerUptime).filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey).one_or_none()
+            if not miner:
+                return {'daily': 0, 'weekly': 0, 'monthly': 0, 'quarterly': 0, 'yearly': 0}
+
+            current_time = datetime.utcnow()
+            periods = {
+                'daily': 86400,
+                'weekly': 604800,
+                'monthly': 2629746,
+                'quarterly': 7889238,  # Approximately three months
+                'yearly': 31556952  # Approximately one year
+            }
+
+            scores = {}
+            for period, seconds in periods.items():
+                if miner.uptime_start <= current_time - timedelta(seconds=seconds):
+                    score = self.calculate_proportional_uptime(session, miner, seconds)
+                else:
+                    score = 0  # Not enough operational history to score this period
+                scores[period] = score
+
+            return scores
