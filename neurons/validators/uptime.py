@@ -1,4 +1,6 @@
 from contextlib import contextmanager
+
+import numpy as np
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinload, subqueryload, joinedload
@@ -107,23 +109,20 @@ class MinerUptimeManager:
         if last_downtime:
             last_downtime.end_time = datetime.utcnow()
 
-    def calculate_proportional_uptime(self, session, miner, period_seconds):
+    def calculate_proportional_uptime(self, miner, period_seconds):
         current_time = datetime.utcnow()
         period_start_time = current_time - timedelta(seconds=period_seconds)
 
-        # Determine the operational window within the requested period
+        # Calculate the operational window
         active_start = max(miner.uptime_start, period_start_time)
-        active_end = miner.deregistered_date if miner.is_deregistered and miner.deregistered_date < current_time else current_time
+        active_end = current_time
 
-        # If the miner has not been operational for the entire period, return 0
-        if miner.uptime_start > period_start_time or (miner.is_deregistered and miner.deregistered_date < period_start_time):
-            return 0
-
+        # Calculate total operational seconds
         operational_seconds = (active_end - active_start).total_seconds()
         if operational_seconds <= 0:
             return 0  # No active operation in the requested period
 
-        # Sum up the downtime within this operational period
+        # Calculate total downtime seconds
         total_downtime_seconds = 0
         for downtime in miner.downtimes:
             if downtime.end_time:
@@ -132,9 +131,24 @@ class MinerUptimeManager:
                 if downtime_start < downtime_end:
                     total_downtime_seconds += (downtime_end - downtime_start).total_seconds()
 
-        # Calculate actual uptime within the operational window
-        actual_uptime_seconds = max(0, operational_seconds - total_downtime_seconds)
-        return actual_uptime_seconds / operational_seconds if operational_seconds > 0 else 0
+        # Calculate downtime percentage of the period
+        downtime_percentage = total_downtime_seconds / operational_seconds
+
+        # Define the scoring function
+        if period_seconds <= 86400:  # For daily periods
+            # Implementing a step function for score deduction based on downtime percentage
+            if downtime_percentage < 0.05:
+                score = 1 - downtime_percentage
+            elif downtime_percentage < 0.10:
+                score = 0.95 - downtime_percentage
+            else:
+                score = 0.90 - downtime_percentage * 1.5
+        else:
+            # Exponential decay for longer periods
+            score = np.exp(-5 * downtime_percentage)
+
+        return max(0, score)  # Ensure the score doesn't go below 0
+
 
     def get_uptime_scores(self, uid, hotkey):
         with self.session_scope() as session:
@@ -154,7 +168,7 @@ class MinerUptimeManager:
             scores = {}
             for period, seconds in periods.items():
                 if miner.uptime_start <= current_time - timedelta(seconds=seconds):
-                    score = self.calculate_proportional_uptime(session, miner, seconds)
+                    score = self.calculate_proportional_uptime(miner, seconds)
                 else:
                     score = 0  # Not enough operational history to score this period
                 scores[period] = score
