@@ -33,10 +33,13 @@ from neurons.storage import store_validator_metadata
 from neurons.validators.scoring import Scorer
 from neurons.validators.uptime import MinerUptimeManager
 from neurons.validators.utils.metadata import Metadata
+from neurons.validators.utils.ping import ping
 from neurons.validators.utils.synapse import is_discovery_response_valid
 
 from neurons.validators.utils.uids import get_uids_batch
 from template.base.validator import BaseValidatorNeuron
+
+
 class Validator(BaseValidatorNeuron):
 
     @staticmethod
@@ -172,6 +175,16 @@ class Validator(BaseValidatorNeuron):
             hotkey = response.axon.hotkey
 
             cross_validation_result, response_time = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height)
+
+            result, average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)
+            if not result:
+                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
+                bt.logging.debug(f"Ping: {hotkey=} Test failed")
+                return 0
+            else:
+                bt.logging.info(f"Ping: {hotkey=} average ping time: {average_ping_time} seconds")
+
+            response_time = abs(response_time - average_ping_time)
 
             if cross_validation_result is None:
                 self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
