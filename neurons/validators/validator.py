@@ -20,31 +20,23 @@ import time
 import argparse
 import traceback
 
-import asyncio
-from random import shuffle, random, randint
-from typing import List, Tuple, Dict
-
 import torch
 import bittensor as bt
 import os
 import yaml
-from collections import Counter
-from sklearn.cluster import KMeans
-import numpy as np
 
 import insights
-from insights import protocol
-from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE, QUERY_TYPE_SEARCH
+from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE
 
 from neurons.remote_config import ValidatorConfig
 from neurons.nodes.factory import NodeFactory
 from neurons.storage import store_validator_metadata
+from neurons.validators.benchmark import BenchmarkValidator
 from neurons.validators.scoring import Scorer
 from neurons.validators.uptime import MinerUptimeManager
 from neurons.validators.utils.metadata import Metadata
 from neurons.validators.utils.ping import ping
 from neurons.validators.utils.synapse import is_discovery_response_valid
-from concurrent.futures import ThreadPoolExecutor
 from neurons.validators.utils.uids import get_uids_batch
 from template.base.validator import BaseValidatorNeuron
 
@@ -95,7 +87,7 @@ class Validator(BaseValidatorNeuron):
         self.sync_validator()
         self.uid_batch_generator = get_uids_batch(self, self.config.neuron.sample_size)
         self.miner_uptime_manager = MinerUptimeManager(db_url=self.config.db_connection_string)
-
+        self.benchmark_validator = BenchmarkValidator(self.dendrite, self.validator_config)
         
     def cross_validate(self, axon, node, start_block_height, last_block_height):
         try:
@@ -261,7 +253,7 @@ class Validator(BaseValidatorNeuron):
         )
 
         responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
-        benchmarks_result = self.run_benchmarks(responses_to_benchmark)
+        benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
 
         rewards = [
             self.get_reward(response, uid, benchmarks_result) for response, uid in zip(responses, uids)
@@ -276,128 +268,6 @@ class Validator(BaseValidatorNeuron):
             self.update_scores(rewards, uids)
         else:
             bt.logging.info('Skipping update_scores() as no responses were valid')
-
-
-    def run_benchmarks(self, filtered_responses):
-        grouped_responses = self.group_responses(filtered_responses)
-        results = {}
-        for network, main_group in grouped_responses.items():
-            for label, group_info in main_group.items():
-                # Chunks are now under 'responses' in each group
-                for chunk in group_info['responses']:
-                    import textwrap
-                    benchmark_query_script = textwrap.dedent(self.validator_config.get_benchmark_query_script(network))
-                    benchmark_query_script_vars = {
-                        'network': network,
-                        'start_block': group_info['common_start'],
-                        'end_block': group_info['common_end'],
-                        'diff': self.validator_config.benchmark_query_diff - randint(0, 100),
-                    }
-
-                    exec(benchmark_query_script, benchmark_query_script_vars)
-                    benchmark_query = benchmark_query_script_vars['query']
-
-                    benchmark_results = self.execute_benchmarks(chunk, benchmark_query)
-
-                    if len(benchmark_results) > 0:
-                        try:
-                            filtered_result = [response_output for uid_value, response_time, response_output in benchmark_results]
-                            most_common_result, _ = Counter(filtered_result).most_common(1)[0]
-                            for uid_value, response_time, result in benchmark_results:
-                                results[uid_value] = (response_time, result == most_common_result)
-                        except Exception as e:
-                            bt.logging.error(f"Error occurred during benchmarking: {traceback.format_exc()}")
-
-        return results
-
-    def run_benchmark(self, response: Discovery, uid, benchmark_query: str = "RETURN 1"):
-        try:
-            uid_value = uid.item() if uid.numel() == 1 else int(uid.numpy())
-            output: DiscoveryOutput = response.output
-
-            benchmark_response = self.dendrite.query(
-                response.axon,
-                protocol.Benchmark(
-                    network=output.metadata.network,
-                    query=benchmark_query
-                ),
-                deserialize=False,
-                timeout=self.validator_config.benchmark_timeout,
-            )
-
-            if benchmark_response is None or benchmark_response.output is None:
-                bt.logging.debug(f"Benchmark validation failed for {response.axon.hotkey}")
-                return None, None, None
-
-            response_time = benchmark_response.dendrite.process_time
-
-            bt.logging.info(f"Benchmark validation passed for {response.axon.hotkey} with response time {response_time}, output: {benchmark_response.output}, uid: {uid_value}")
-            return uid_value, response_time, benchmark_response.output
-        except Exception as e:
-            bt.logging.error(f"Error occurred during benchmarking {response.axon.hotkey}: {traceback.format_exc()}")
-            return None, None, None
-
-    def execute_benchmarks(self, group, benchmark_query):
-
-        results = []
-        for response, uid in group['responses']:
-            bt.logging.info(f"Running benchmark for {response.axon.hotkey}")
-            result = self.run_benchmark(response, uid, benchmark_query)
-            results.append(result)
-
-        filtered_run_results = []
-        for uid_value, response_time, response_output in results:
-            if response_output is not None:
-                filtered_run_results.append((uid_value, response_time, response_output))
-
-        return filtered_run_results
-
-    def chunk_responses(self, responses: List[Tuple[Discovery, str]], chunk_size: int) -> List[List[Tuple[Discovery, str]]]:
-        return [responses[i:i + chunk_size] for i in range(0, len(responses), chunk_size)]
-
-    def group_responses(self, responses: List[Tuple[Discovery, str]]) -> Dict[str, Dict[int, Dict[str, object]]]:
-        network_grouped_responses = {}
-
-        for resp, uid in responses:
-            net = resp.output.metadata.network
-            if net not in network_grouped_responses:
-                network_grouped_responses[net] = []
-            network_grouped_responses[net].append((resp, uid))
-
-        new_groups = {}
-        chunk_size = self.validator_config.benchmark_query_chunk_size
-        for network, items in network_grouped_responses.items():
-            data = np.array([(resp.output.start_block_height, resp.output.block_height) for resp, _ in items])
-            k = self.validator_config.benchmark_cluster_size
-
-            try:
-                kmeans = KMeans(n_clusters=k, random_state=0).fit(data)
-                labels = kmeans.labels_
-            except ValueError as e:
-                print(f"Error clustering data for network {network}: {e}")
-                continue
-
-            grouped_responses = {}
-            for label, item in zip(labels, items):
-                if label not in grouped_responses:
-                    grouped_responses[label] = []
-                grouped_responses[label].append(item)
-
-            # Find common starting and ending block height for each group
-            for label, group in grouped_responses.items():
-                shuffle(group)  # Shuffle the group before chunking
-                chunked_groups = self.chunk_responses(group, chunk_size)
-                min_start = min(resp.output.start_block_height for resp, _ in group)
-                min_end = min(resp.output.block_height for resp, _ in group)
-                if network not in new_groups:
-                    new_groups[network] = {}
-                new_groups[network][label] = {
-                    'common_start': min_start,
-                    'common_end': min_end,
-                    'responses': chunked_groups,
-                }
-
-        return new_groups
 
     def sync_validator(self):
         self.metadata = Metadata.build(self.metagraph, self.config)
