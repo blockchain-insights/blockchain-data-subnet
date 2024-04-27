@@ -21,6 +21,9 @@ import argparse
 import traceback
 
 import asyncio
+from random import shuffle, random, randint
+from typing import List, Tuple, Dict
+
 import torch
 import bittensor as bt
 import os
@@ -274,35 +277,38 @@ class Validator(BaseValidatorNeuron):
         else:
             bt.logging.info('Skipping update_scores() as no responses were valid')
 
+
     def run_benchmarks(self, filtered_responses):
         grouped_responses = self.group_responses(filtered_responses)
-
         results = {}
         for network, main_group in grouped_responses.items():
-            for label, group in main_group.items():
-                import textwrap
-                benchmark_query_script = textwrap.dedent(self.validator_config.get_benchmark_query_script(network))
-                benchmark_query_script_vars = {
-                    'network': network,
-                    'start_block': group['common_start'],
-                    'end_block': group['common_end']
-                }
+            for label, group_info in main_group.items():
+                # Chunks are now under 'responses' in each group
+                for chunk in group_info['responses']:
+                    import textwrap
+                    benchmark_query_script = textwrap.dedent(self.validator_config.get_benchmark_query_script(network))
+                    benchmark_query_script_vars = {
+                        'network': network,
+                        'start_block': group_info['common_start'],
+                        'end_block': group_info['common_end'],
+                        'diff': self.validator_config.benchmark_query_diff - randint(0, 100),
+                    }
 
-                exec(benchmark_query_script, benchmark_query_script_vars)
-                benchmark_query = benchmark_query_script_vars['query']
+                    exec(benchmark_query_script, benchmark_query_script_vars)
+                    benchmark_query = benchmark_query_script_vars['query']
 
-                benchmark_results = self.execute_benchmarks(group, benchmark_query)
+                    benchmark_results = self.execute_benchmarks(chunk, benchmark_query)
 
-                if len(benchmark_results) > 0:
-                    try:
-                        filtered_result = [response_output for uid_value, response_time, response_output in benchmark_results]
-                        most_common_result, _ = Counter(filtered_result).most_common(1)[0]
-                        for uid_value, response_time, result in benchmark_results:
-                            results[uid_value] = (response_time, result == most_common_result)
-                    except Exception as e:
-                        bt.logging.error(f"Error occurred during benchmarking: {traceback.format_exc()}")
+                    if len(benchmark_results) > 0:
+                        try:
+                            filtered_result = [response_output for uid_value, response_time, response_output in benchmark_results]
+                            most_common_result, _ = Counter(filtered_result).most_common(1)[0]
+                            for uid_value, response_time, result in benchmark_results:
+                                results[uid_value] = (response_time, result == most_common_result)
+                        except Exception as e:
+                            bt.logging.error(f"Error occurred during benchmarking: {traceback.format_exc()}")
 
-            return results
+        return results
 
     def run_benchmark(self, response: Discovery, uid, benchmark_query: str = "RETURN 1"):
         try:
@@ -346,7 +352,10 @@ class Validator(BaseValidatorNeuron):
 
         return filtered_run_results
 
-    def group_responses(self, responses) -> dict:
+    def chunk_responses(self, responses: List[Tuple[Discovery, str]], chunk_size: int) -> List[List[Tuple[Discovery, str]]]:
+        return [responses[i:i + chunk_size] for i in range(0, len(responses), chunk_size)]
+
+    def group_responses(self, responses: List[Tuple[Discovery, str]]) -> Dict[str, Dict[int, Dict[str, object]]]:
         network_grouped_responses = {}
 
         for resp, uid in responses:
@@ -356,29 +365,36 @@ class Validator(BaseValidatorNeuron):
             network_grouped_responses[net].append((resp, uid))
 
         new_groups = {}
-        for network in network_grouped_responses:
-            data = np.array([(resp.output.start_block_height, resp.output.block_height) for (resp, uid) in network_grouped_responses[network]])
+        chunk_size = self.validator_config.benchmark_query_chunk_size
+        for network, items in network_grouped_responses.items():
+            data = np.array([(resp.output.start_block_height, resp.output.block_height) for resp, _ in items])
             k = self.validator_config.benchmark_cluster_size
 
-            kmeans = KMeans(n_clusters=k, random_state=0).fit(data)
-            labels = kmeans.labels_
+            try:
+                kmeans = KMeans(n_clusters=k, random_state=0).fit(data)
+                labels = kmeans.labels_
+            except ValueError as e:
+                print(f"Error clustering data for network {network}: {e}")
+                continue
 
             grouped_responses = {}
-            for label, response in zip(labels, network_grouped_responses[network]):
+            for label, item in zip(labels, items):
                 if label not in grouped_responses:
                     grouped_responses[label] = []
-                grouped_responses[label].append(response)
+                grouped_responses[label].append(item)
 
-            # we find here common starting and ending block height for each group
+            # Find common starting and ending block height for each group
             for label, group in grouped_responses.items():
-                min_start = min(resp.output.start_block_height for (resp, uid) in group)
-                min_end = min(resp.output.block_height for (resp, uid) in group)
+                shuffle(group)  # Shuffle the group before chunking
+                chunked_groups = self.chunk_responses(group, chunk_size)
+                min_start = min(resp.output.start_block_height for resp, _ in group)
+                min_end = min(resp.output.block_height for resp, _ in group)
                 if network not in new_groups:
                     new_groups[network] = {}
                 new_groups[network][label] = {
                     'common_start': min_start,
                     'common_end': min_end,
-                    'responses': group,
+                    'responses': chunked_groups,
                 }
 
         return new_groups
