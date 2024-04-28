@@ -70,7 +70,7 @@ class MinerUptimeManager:
 
                 return None
         except Exception:
-            pass
+            return None
 
     def try_update_miner(self, uid, hotkey):
         with self.session_scope() as session:
@@ -135,7 +135,7 @@ class MinerUptimeManager:
     def calculate_uptime(self, uid, hotkey, period_seconds):
         try:
             with self.session_scope() as session:
-                miner = session.query(MinerUptime).filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey).one()
+                miner = self.get_miner(uid, hotkey)
                 active_period_end = miner.deregistered_date if miner.is_deregistered else datetime.utcnow()
                 active_period_start = miner.uptime_start
                 active_seconds = (active_period_end - active_period_start).total_seconds()
@@ -149,14 +149,12 @@ class MinerUptimeManager:
                 actual_uptime_seconds = max(0, active_seconds - total_downtime)
                 return actual_uptime_seconds / active_seconds if active_seconds > 0 else 0
         except Exception:
-            pass
+            return 1
 
     def get_uptime_scores(self, uid, hotkey):
-        try:
-            day = self.calculate_uptime(uid, hotkey, 86400)
-            week = self.calculate_uptime(uid, hotkey, 604800)
-            month = self.calculate_uptime(uid, hotkey, 2629746)
-            average = (day + week + month) / 3
-            return {'daily': day, 'weekly': week, 'monthly': month, 'average': average}
-        except Exception:
-            pass
+        day = self.calculate_uptime(uid, hotkey, 86400)
+        week = self.calculate_uptime(uid, hotkey, 604800)
+        month = self.calculate_uptime(uid, hotkey, 2629746)
+        average = (day + week + month) / 3
+        return {'daily': day, 'weekly': week, 'monthly': month, 'average': average}
+
