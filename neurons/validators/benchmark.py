@@ -18,7 +18,9 @@ class BenchmarkValidator:
 
     def run_benchmarks(self, filtered_responses):
         bt.logging.info(f"Starting benchmarking for {len(filtered_responses)} filtered responses.")
-        grouped_responses = self.group_responses(filtered_responses)
+        response_processor = ResponseProcessor(self.validator_config)
+        grouped_responses = response_processor.group_responses(filtered_responses)
+        bt.logging.info(f"Grouped responses into {len(grouped_responses)} groups.")
         results = {}
 
         for network, main_group in grouped_responses.items():
@@ -50,7 +52,6 @@ class BenchmarkValidator:
         bt.logging.info(f"Executing benchmarks for {len(responses)} responses.")
         results = []
         for response, uid in responses:
-            bt.logging.info(f"Running benchmark for {response.axon.hotkey} with UID {uid}")
             result = self.run_benchmark(response, uid, benchmark_query)
             results.append(result)
 
@@ -80,7 +81,11 @@ class BenchmarkValidator:
             bt.logging.error(f"Error occurred during benchmarking {response.axon.hotkey}: {traceback.format_exc()}")
             return None, None, None
 
-    def group_responses(self, responses: List[Tuple[Discovery, str]]) -> Dict[str, Dict[int, Dict[str, object]]]:
+class ResponseProcessor:
+    def __init__(self, validator_config):
+        self.validator_config = validator_config
+
+    def group_responses(self, responses):
         network_grouped_responses = {}
         for resp, uid in responses:
             net = resp.output.metadata.network
@@ -103,9 +108,36 @@ class BenchmarkValidator:
 
             for label, group in grouped_responses.items():
                 shuffle(group)
-                chunked_groups = [group[i:i + chunk_size] for i in range(0, len(group), chunk_size)]
-                min_start = min(resp.output.start_block_height for resp, _ in group)
-                min_end = min(resp.output.block_height for resp, _ in group)
+                chunked_groups = []
+                ip_to_chunk_map = {}
+
+                for resp, uid in group:
+                    resp_ip = resp.axon.ip
+                    hotkey = resp.axon.hotkey  # Assuming hotkey is accessed this way
+                    response_id = f"{resp_ip} (Hotkey: {hotkey})"
+
+                    if resp_ip in ip_to_chunk_map:
+                        chunked_groups[ip_to_chunk_map[resp_ip]].append((response_id, uid))
+                    else:
+                        # Assign to a new or existing chunk that hasn't reached size limit
+                        placed = False
+                        for idx, chunk in enumerate(chunked_groups):
+                            if len(chunk) < chunk_size:
+                                chunk.append((response_id, uid))
+                                ip_to_chunk_map[resp_ip] = idx
+                                placed = True
+                                break
+                        if not placed:
+                            chunked_groups.append([(response_id, uid)])
+                            ip_to_chunk_map[resp_ip] = len(chunked_groups) - 1
+
+                # Logging IPs and chunk information with hotkeys
+                for idx, chunk in enumerate(chunked_groups):
+                    details = [response for response, _ in chunk]
+                    bt.logging.info(f"Network {network}, Label {label}, Chunk {idx+1}: Contains Responses {details}")
+
+                min_start = min(resp.output.start_block_height for resp, uid in group)
+                min_end = min(resp.output.block_height for resp, uid in group)
                 new_groups.setdefault(network, {})[label] = {
                     'common_start': min_start,
                     'common_end': min_end,
