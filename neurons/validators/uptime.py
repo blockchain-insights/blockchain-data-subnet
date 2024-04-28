@@ -86,7 +86,7 @@ class MinerUptimeManager:
                     new_miner = MinerUptime(uid=uid, hotkey=hotkey)
                     session.add(new_miner)
 
-                elif existing_miner.hotkey == hotkey and existing_miner.uid == uid:
+                elif existing_miner and existing_miner.hotkey == hotkey and existing_miner.uid == uid:
                     # do nothing
                     pass
                 else:

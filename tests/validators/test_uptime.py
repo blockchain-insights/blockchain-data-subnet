@@ -39,15 +39,18 @@ class TestMinerUptimeManager(unittest.TestCase):
     def test_try_update_miner(self):
         # Initial insert
         self.uptime_manager.try_update_miner(123, 'key123')
-        miner = self.session.query(MinerUptime).first()
+        miner = self.uptime_manager.get_miner(123, 'key123')
         self.assertIsNotNone(miner)
         self.assertEqual(miner.uid, 123)
         self.assertEqual(miner.hotkey, 'key123')
 
         # Update to deregister
         self.uptime_manager.try_update_miner(123, 'key124')
-        miner = self.session.query(MinerUptime).filter(MinerUptime.uid == 123).first()
-        self.assertTrue(miner.is_deregistered)
+        old_miner = self.uptime_manager.get_miner(123, 'key123')
+        self.assertTrue(old_miner.is_deregistered)
+
+        new_miner = self.uptime_manager.get_miner(123, 'key124')
+        self.assertFalse(new_miner.is_deregistered)
 
     def test_up(self):
         self.uptime_manager.try_update_miner(123, 'key123')

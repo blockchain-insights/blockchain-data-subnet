@@ -110,6 +110,8 @@ class Validator(BaseValidatorNeuron):
             # if the miner's response is different from the expected response and validation failed
             if not response.output == expected_response and not node.validate_challenge_response_output(challenge, response.output):
                 return False, response_time
+
+            bt.logging.info(f"Cross validation passed, {response.output=}, {expected_response=}")
             
             return True, response_time
         except Exception as e:
@@ -185,6 +187,10 @@ class Validator(BaseValidatorNeuron):
             last_block_height = output.block_height
             hotkey = response.axon.hotkey
 
+            if self.block_height_cache[network] - last_block_height < 6:
+                bt.logging.debug(f"Indexed block cannot be higher than current_block - 6")
+                return 0
+
             result, average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)
             if not result:
                 bt.logging.info(f"Ping: {hotkey=} Test failed, setting score to avg_ping_time=0, continuing..")
@@ -254,6 +260,8 @@ class Validator(BaseValidatorNeuron):
 
         responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
         benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
+
+        self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
         rewards = [
             self.get_reward(response, uid, benchmarks_result) for response, uid in zip(responses, uids)

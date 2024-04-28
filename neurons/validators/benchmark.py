@@ -140,6 +140,7 @@ class ResponseProcessor:
 
         for i in new_groups:
             for j in new_groups[i]:
+                idx = 0
                 for response in new_groups[i][j]['responses']:
                     details = [(response.axon.ip, response.axon.hotkey) for (response, uid) in response]
                     bt.logging.info(f"Network {network}, Label {label}, Chunk {idx+1}: Contains Responses {details}")
