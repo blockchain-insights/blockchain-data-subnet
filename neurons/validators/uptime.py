@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Foreign
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinload, subqueryload, joinedload
 from datetime import datetime
+import bittensor as bt
 
 Base = declarative_base()
 
@@ -70,13 +71,27 @@ class MinerUptimeManager:
 
     def try_update_miner(self, uid, hotkey):
         with self.session_scope() as session:
-            existing_miner = session.query(MinerUptime).filter(MinerUptime.uid == uid).first()
-            if existing_miner and existing_miner.hotkey != hotkey:
-                existing_miner.is_deregistered = True
-                existing_miner.deregistered_date = datetime.utcnow()
-            if not existing_miner or existing_miner.is_deregistered:
-                new_miner = MinerUptime(uid=uid, hotkey=hotkey)
-                session.add(new_miner)
+            try:
+                existing_miner = session.query(MinerUptime).filter(MinerUptime.uid == uid).first()
+
+                # Try to replace previous miner
+                if existing_miner and existing_miner.hotkey != hotkey:
+                    existing_miner.is_deregistered = True
+                    existing_miner.deregistered_date = datetime.utcnow()
+
+                    # add new miner as previous one was dereg
+                    new_miner = MinerUptime(uid=uid, hotkey=hotkey)
+                    session.add(new_miner)
+
+                elif existing_miner.hotkey == hotkey and existing_miner.uid == uid:
+                    # do nothing
+                    pass
+                else:
+                    # add new miner
+                    new_miner = MinerUptime(uid=uid, hotkey=hotkey)
+                    session.add(new_miner)
+            except Exception as e:
+                bt.logging.error(f"Error occurred during miner update: {e}")
 
     def up(self, uid, hotkey):
         with self.session_scope() as session:

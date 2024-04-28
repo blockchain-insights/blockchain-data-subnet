@@ -113,28 +113,20 @@ class ResponseProcessor:
 
                 for resp, uid in group:
                     resp_ip = resp.axon.ip
-                    hotkey = resp.axon.hotkey  # Assuming hotkey is accessed this way
-                    response_id = f"{resp_ip} (Hotkey: {hotkey})"
-
                     if resp_ip in ip_to_chunk_map:
-                        chunked_groups[ip_to_chunk_map[resp_ip]].append((response_id, uid))
+                        chunked_groups[ip_to_chunk_map[resp_ip]].append((resp, uid))
                     else:
                         # Assign to a new or existing chunk that hasn't reached size limit
                         placed = False
                         for idx, chunk in enumerate(chunked_groups):
                             if len(chunk) < chunk_size:
-                                chunk.append((response_id, uid))
+                                chunk.append((resp, uid))
                                 ip_to_chunk_map[resp_ip] = idx
                                 placed = True
                                 break
                         if not placed:
-                            chunked_groups.append([(response_id, uid)])
+                            chunked_groups.append([(resp, uid)])
                             ip_to_chunk_map[resp_ip] = len(chunked_groups) - 1
-
-                # Logging IPs and chunk information with hotkeys
-                for idx, chunk in enumerate(chunked_groups):
-                    details = [response for response, _ in chunk]
-                    bt.logging.info(f"Network {network}, Label {label}, Chunk {idx+1}: Contains Responses {details}")
 
                 min_start = min(resp.output.start_block_height for resp, uid in group)
                 min_end = min(resp.output.block_height for resp, uid in group)
@@ -145,5 +137,11 @@ class ResponseProcessor:
                 }
 
                 bt.logging.info(f"Grouped {len(group)} responses for network {network} with label {label} into {len(chunked_groups)} chunks. Common start: {min_start}, common end: {min_end}.")
+
+        for i in new_groups:
+            for j in new_groups[i]:
+                for response in new_groups[i][j]['responses']:
+                    details = [(response.axon.ip, response.axon.hotkey) for (response, uid) in response]
+                    bt.logging.info(f"Network {network}, Label {label}, Chunk {idx+1}: Contains Responses {details}")
 
         return new_groups
