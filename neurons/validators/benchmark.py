@@ -49,7 +49,7 @@ class BenchmarkValidator:
         return results
 
     def execute_benchmarks(self, responses, benchmark_query):
-        bt.logging.info(f"Executing benchmarks for {len(responses)} responses.")
+        bt.logging.info(f"Executing {benchmark_query=} query for {len(responses)} responses.")
         results = []
         for response, uid in responses:
             result = self.run_benchmark(response, uid, benchmark_query)
