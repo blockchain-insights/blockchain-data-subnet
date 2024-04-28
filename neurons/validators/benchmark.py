@@ -128,11 +128,6 @@ class ResponseProcessor:
                             chunked_groups.append([(resp, uid)])
                             ip_to_chunk_map[resp_ip] = len(chunked_groups) - 1
 
-                # Logging IPs and chunk information with hotkeys
-                for idx, chunk in enumerate(chunked_groups):
-                    details = [(response.axon.ip, response.axon.hotkey) for response, _ in chunk]
-                    bt.logging.info(f"Network {network}, Label {label}, Chunk {idx+1}: Contains Responses {details}")
-
                 min_start = min(resp.output.start_block_height for resp, uid in group)
                 min_end = min(resp.output.block_height for resp, uid in group)
                 new_groups.setdefault(network, {})[label] = {
@@ -142,5 +137,11 @@ class ResponseProcessor:
                 }
 
                 bt.logging.info(f"Grouped {len(group)} responses for network {network} with label {label} into {len(chunked_groups)} chunks. Common start: {min_start}, common end: {min_end}.")
+
+        for i in new_groups:
+            for j in new_groups[i]:
+                for response in new_groups[i][j]['responses']:
+                    details = [(response.axon.ip, response.axon.hotkey) for (response, uid) in response]
+                    bt.logging.info(f"Network {network}, Label {label}, Chunk {idx+1}: Contains Responses {details}")
 
         return new_groups
