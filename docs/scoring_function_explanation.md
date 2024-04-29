@@ -71,7 +71,7 @@ The function is illustrated in the graph below
 
 ### Recency of Block ($s_{2}$) Calculation
 
-`Recency of Block` measures the difference between the indexed end block height and the current blockchain block height. The final recency score is based on this difference.
+`Recency of Block` measures the difference between the indexed end block height and the current blockchain block height. This function take into account the recency of the miner's last index block with respect to the most recent block of the worst performing miner. The final recency score is based on this difference.
 
 The function is illustrated in the graph below
 
