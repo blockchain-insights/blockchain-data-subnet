@@ -60,7 +60,7 @@ class Scorer:
 
     def calculate_process_time_score(self, process_time, discovery_timeout):
         process_time = min(process_time, discovery_timeout)
-        factor = (process_time / discovery_timeout) ** 2
+        factor = (process_time / discovery_timeout) ** (1/3)
         process_time_score = max(0, 1 - factor)
         return process_time_score
 
