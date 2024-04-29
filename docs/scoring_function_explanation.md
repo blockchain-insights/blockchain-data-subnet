@@ -62,7 +62,7 @@ Our scoring function is implemented through a set of Python functions to assess 
 
 ### Block Height Coverage ($s_{1}$) Calculation
 
-The `Block Height Coverage` function evaluates the coverage of indexed blocks within a blockchain. It considers the number of blocks covered, the minimum required blocks. The final score is a combination of coverage percentage and recency score.
+The `Block Height Coverage` function evaluates the coverage of indexed blocks within a blockchain. It considers the number of blocks covered as well as the minimum required blocks.
 
 The function is illustrated in the graph below
 <p align="center">
