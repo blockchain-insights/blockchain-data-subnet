@@ -70,6 +70,7 @@ class MinerUptimeManager:
 
                 return None
         except Exception:
+            bt.logging.error(f"Error occurred during miner retrieval for {hotkey}")
             return None
 
     def try_update_miner(self, uid, hotkey):
@@ -105,7 +106,7 @@ class MinerUptimeManager:
                     return True
                 return False
         except Exception:
-            pass
+            bt.logging.error(f"Error occurred during uptime end for {hotkey}")
 
     def down(self, uid, hotkey):
         try:
@@ -123,13 +124,15 @@ class MinerUptimeManager:
                         return True  # Indicate successful addition of new downtime
                 return False  # No new downtime was added, either miner does not exist or last downtime is still open
         except Exception:
-            pass
+            bt.logging.error(f"Error occurred during downtime start for {hotkey}")
+
     def end_last_downtime(self, miner_id, session):
         try:
             last_downtime = session.query(DowntimeLog).filter(DowntimeLog.miner_id == miner_id, DowntimeLog.end_time == None).first()
             if last_downtime:
                 last_downtime.end_time = datetime.utcnow()
         except Exception:
+            bt.logging.error(f"Error occurred during downtime end for {miner_id}")
             pass
 
     def calculate_uptime(self, uid, hotkey, period_seconds):
@@ -149,6 +152,7 @@ class MinerUptimeManager:
                 actual_uptime_seconds = max(0, active_seconds - total_downtime)
                 return actual_uptime_seconds / active_seconds if active_seconds > 0 else 0
         except Exception:
+            btl.logging.error(f"Error occurred during uptime calculation for {hotkey}, returning 1.0")
             return 1
 
     def get_uptime_scores(self, uid, hotkey):

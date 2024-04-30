@@ -100,8 +100,14 @@ class Validator(BaseValidatorNeuron):
                 timeout=self.validator_config.challenge_timeout,
             )
 
+            hotkey = response.axon.hotkey
+
             response_time = response.dendrite.process_time
-            bt.logging.info(f"Cross validation response time: {response_time}, status_code: {response.axon.status_code}")
+            bt.logging.info(f"({hotkey=}) Cross validation response time: {response_time}, status_code: {response.axon.status_code}")
+
+            if response is not None and response.output is None:
+                bt.logging.debug(f"({hotkey=}) Cross validation failed")
+                return False, 128
 
             if response is None or response.output is None:
                 bt.logging.debug("Cross validation failed")
@@ -109,9 +115,10 @@ class Validator(BaseValidatorNeuron):
 
             # if the miner's response is different from the expected response and validation failed
             if not response.output == expected_response and not node.validate_challenge_response_output(challenge, response.output):
+                bt.logging.debug(f"({hotkey=}) Cross validation failed: {response.output=}, {expected_response=}")
                 return False, response_time
 
-            bt.logging.info(f"Cross validation passed, {response.output=}, {expected_response=}")
+            bt.logging.info(f"({hotkey=}) Cross validation passed: {response.output=}, {expected_response=}")
             
             return True, response_time
         except Exception as e:
@@ -125,33 +132,34 @@ class Validator(BaseValidatorNeuron):
         hotkey_meta = self.metadata.get_metadata_for_hotkey(hotkey)
 
         if not (hotkey_meta and hotkey_meta['network']):
-            bt.logging.info(f'Validation Failed: hotkey={hotkey} unable to retrieve miner metadata')
+            bt.logging.info(f'({hotkey=}) Validation Failed: unable to retrieve miner metadata')
             return False
 
         ip_count = self.metadata.ip_distribution.get(ip, 0)
         coldkey_count = self.metadata.coldkey_distribution.get(hotkey, 0)
 
-        bt.logging.info(f"🔄 Processing response for {hotkey}@{ip}")
+        bt.logging.info(f"({hotkey=}) 🔄 Processing response from miner {ip}")
         if ip_count > MAX_MINER_INSTANCE:
-            bt.logging.info(f'Validation Failed: hotkey={hotkey} has {ip_count} ip')
+            bt.logging.info(f'({hotkey=}) Validation Failed: {ip_count} ips')
             return False
         if coldkey_count > MAX_MINER_INSTANCE:
-            bt.logging.info(f'Validation Failed: Coldkey of hotkey={hotkey} has {coldkey_count} hotkeys')
+            bt.logging.info(f'({hotkey=}) Validation Failed: Coldkey has {coldkey_count} hotkeys')
             return False
         
-        bt.logging.info(f'hotkey={hotkey} has {ip_count} ip, {coldkey_count} hotkeys for its coldkey')
+        bt.logging.info(f'({hotkey=}) Hotkey has {ip_count} ip, {coldkey_count} hotkeys for its coldkey')
 
         return True
     
     def is_response_status_code_valid(self, response):
+            hotkey = response.axon.hotkey
             status_code = response.axon.status_code
             status_message = response.axon.status_message
             if response.is_failure:
-                bt.logging.info(f"Discovery response: Failure, miner {response.axon.hotkey} returned {status_code=}: {status_message=}")
+                bt.logging.info(f"({hotkey=}) Discovery response: Failure,  returned {status_code=}: {status_message=}")
             elif response.is_blacklist:
-                bt.logging.info(f"Discovery response: Blacklist, miner {response.axon.hotkey} returned {status_code=}: {status_message=}")
+                bt.logging.info(f"({hotkey=}) Discovery response: Blacklist, returned {status_code=}: {status_message=}")
             elif response.is_timeout:
-                bt.logging.info(f"Discovery response: Timeout, miner {response.axon.hotkey}")
+                bt.logging.info(f"({hotkey=}) Discovery response: Timeout")
             return status_code == 200
 
     def is_response_valid(self, response: Discovery):
@@ -165,70 +173,71 @@ class Validator(BaseValidatorNeuron):
 
     def get_reward(self, response: Discovery, uid: int, benchmarks_result):
         try:
+            hotkey = response.axon.hotkey
             uid_value = uid.item() if uid.numel() == 1 else int(uid.numpy())
-            self.miner_uptime_manager.try_update_miner(uid_value, response.axon.hotkey)
+            self.miner_uptime_manager.try_update_miner(uid_value, hotkey)
 
             if not self.is_response_status_code_valid(response):
                 score = self.metagraph.T[uid]/2
-                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
-                bt.logging.debug(f'Discovery Response error: hotkey={response.axon.hotkey}, setting score to {score}')
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                bt.logging.debug(f'({hotkey=}) Discovery Response error, setting score to {score}')
                 return score
             if not is_discovery_response_valid(response):
-                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
-                bt.logging.debug(f'Discovery Response invalid {response}')
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                bt.logging.debug(f'({hotkey=}) Discovery Response invalid {response}')
                 return 0
             if not self.is_miner_metadata_valid(response):
-                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
+                self.miner_uptime_manager.down(uid_value, hotkey)
                 return 0
 
             output: DiscoveryOutput = response.output
             network = output.metadata.network
             start_block_height = output.start_block_height
             last_block_height = output.block_height
-            hotkey = response.axon.hotkey
 
             if self.block_height_cache[network] - last_block_height < 6:
-                bt.logging.debug(f"Indexed block cannot be higher than current_block - 6")
+                bt.logging.info(f"({hotkey=}) Indexed block cannot be higher than current_block - 6")
                 return 0
 
             result, average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)
             if not result:
-                bt.logging.info(f"Ping: {hotkey=} Test failed, setting score to avg_ping_time=0, continuing..")
+                bt.logging.info(f"({hotkey=}) Ping Test failed, setting score to avg_ping_time=0..")
             else:
-                bt.logging.info(f"Ping: {hotkey=} average ping time: {average_ping_time} seconds")
+                bt.logging.info(f"({hotkey=}) Ping Test: average ping time: {average_ping_time} seconds")
 
             cross_validation_result, _ = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height)
 
             if cross_validation_result is None:
-                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
-                bt.logging.debug(f"Cross-Validation: {hotkey=} Timeout skipping response")
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                bt.logging.debug(f"({hotkey=}) Cross-Validation: Timeout skipping response")
                 return None
             if not cross_validation_result:
-                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
-                bt.logging.info(f"Cross-Validation: {hotkey=} Test failed")
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                bt.logging.info(f"({hotkey=}) Cross-Validation: Test failed")
                 return 0
-            bt.logging.info(f"Cross-Validation: {hotkey=} Test passed")
+            bt.logging.info(f"({hotkey=}) Cross-Validation: Test passed")
 
             benchmark_result = benchmarks_result.get(uid_value)
             if benchmark_result is None:
-                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
-                bt.logging.info(f"Benchmark-Validation: {hotkey=} Timeout skipping response")
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                bt.logging.info(f"({hotkey=}) Benchmark-Validation: Timeout skipping response")
                 return
 
             response_time, benchmark_is_valid = benchmark_result
             if not benchmark_is_valid:
-                self.miner_uptime_manager.down(uid_value, response.axon.hotkey)
-                bt.logging.info(f"Benchmark-Validation: {hotkey=} Test failed")
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                bt.logging.info(f"({hotkey=}) Benchmark-Validation: Test failed")
                 return 0
 
-            bt.logging.info(f"Benchmark-Validation: {hotkey=} Test passed")
+            bt.logging.info(f"({hotkey=}) Benchmark-Validation: Test passed")
 
             response_time = response_time - average_ping_time
 
-            self.miner_uptime_manager.up(uid_value, response.axon.hotkey)
-            uptime_score = self.miner_uptime_manager.get_uptime_scores(uid_value, response.axon.hotkey)
+            self.miner_uptime_manager.up(uid_value, hotkey)
+            uptime_score = self.miner_uptime_manager.get_uptime_scores(uid_value, hotkey)
 
             score = self.scorer.calculate_score(
+                hotkey,
                 network,
                 response_time,
                 start_block_height,
