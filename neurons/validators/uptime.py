@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinload, subqueryload, joinedload
-from datetime import datetime
+from datetime import datetime, timedelta
 import bittensor as bt
 
 Base = declarative_base()
@@ -138,11 +138,21 @@ class MinerUptimeManager:
     def calculate_uptime(self, uid, hotkey, period_seconds):
         try:
             with self.session_scope() as session:
-                miner = self.get_miner(uid, hotkey)
+                query = session.query(MinerUptime).options(joinedload(MinerUptime.downtimes)).filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey)
+                miner = query.first()
+                if miner is None:
+                    return 0  # No miner found for the UID and hotkey provided
+
                 active_period_end = miner.deregistered_date if miner.is_deregistered else datetime.utcnow()
                 active_period_start = miner.uptime_start
-                active_seconds = (active_period_end - active_period_start).total_seconds()
 
+                # Adjust active period based on period_seconds if needed
+                if period_seconds:
+                    adjusted_start = max(active_period_start, datetime.utcnow() - timedelta(seconds=period_seconds))
+                    if adjusted_start > active_period_end:
+                        return 0  # No active time in the specified period
+
+                active_seconds = (active_period_end - active_period_start).total_seconds()
                 total_downtime = sum(
                     (log.end_time - log.start_time).total_seconds()
                     for log in miner.downtimes
@@ -151,9 +161,9 @@ class MinerUptimeManager:
 
                 actual_uptime_seconds = max(0, active_seconds - total_downtime)
                 return actual_uptime_seconds / active_seconds if active_seconds > 0 else 0
-        except Exception:
-            btl.logging.error(f"Error occurred during uptime calculation for {hotkey}, returning 1.0")
-            return 1
+        except Exception as e:
+            bt.logging.error(f"Error occurred during uptime calculation for {hotkey}: {str(e)}")
+            raise e  # Rethrow the exception after logging
 
     def get_uptime_scores(self, uid, hotkey):
         day = self.calculate_uptime(uid, hotkey, 86400)
