@@ -1,14 +1,8 @@
 import traceback
 from collections import Counter
-from random import shuffle, randint
-from typing import List, Tuple, Dict
-
-import numpy as np
-from sklearn.cluster import KMeans
-
+from random import randint
 import bittensor as bt
 from insights import protocol
-from insights.protocol import DiscoveryOutput, Discovery
 
 
 class BenchmarkValidator:
@@ -21,9 +15,6 @@ class BenchmarkValidator:
         response_processor = ResponseProcessor(self.validator_config)
 
         grouped_responses = response_processor.group_responses(filtered_responses)
-
-
-
         bt.logging.info(f"Grouped responses into {len(grouped_responses)} groups.")
         results = {}
 
@@ -75,11 +66,11 @@ class BenchmarkValidator:
             )
 
             if benchmark_response is None or benchmark_response.output is None:
-                bt.logging.debug(f"Benchmark validation failed for {response.axon.hotkey}")
+                bt.logging.debug(f"Benchmark data retrieval failed for {response.axon.hotkey}")
                 return None, None, None
 
             response_time = benchmark_response.dendrite.process_time
-            bt.logging.info(f"Benchmark validation passed for {response.axon.hotkey} with response time {response_time}, output: {benchmark_response.output}, uid: {uid_value}")
+            bt.logging.info(f"Benchmark data received for {response.axon.hotkey} with response time {response_time}, output: {benchmark_response.output}, uid: {uid_value}")
             return uid_value, response_time, benchmark_response.output
         except Exception as e:
             bt.logging.error(f"Error occurred during benchmarking {response.axon.hotkey}: {traceback.format_exc()}")

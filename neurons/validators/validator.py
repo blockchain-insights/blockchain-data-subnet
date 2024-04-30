@@ -281,10 +281,8 @@ class Validator(BaseValidatorNeuron):
         self.metadata = Metadata.build(self.metagraph, self.config)
         self.validator_config = ValidatorConfig().load_and_get_config_values()
         self.scorer = Scorer(self.validator_config)
-
         self.networks = self.validator_config.get_networks()
         self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
-
         if self.validator_config.version_update is True and self.validator_config.version != insights.__version__:
             exit(3)
 
