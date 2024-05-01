@@ -78,24 +78,22 @@ class MinerUptimeManager:
             try:
                 existing_miner = session.query(MinerUptime).filter(MinerUptime.uid == uid).first()
 
-                # Try to replace previous miner
-                if existing_miner and existing_miner.hotkey != hotkey:
-                    existing_miner.is_deregistered = True
-                    existing_miner.deregistered_date = datetime.utcnow()
-
-                    # add new miner as previous one was dereg
-                    new_miner = MinerUptime(uid=uid, hotkey=hotkey)
-                    session.add(new_miner)
-
-                elif existing_miner and existing_miner.hotkey == hotkey and existing_miner.uid == uid:
-                    # do nothing
-                    pass
+                if existing_miner:
+                    if existing_miner.hotkey == hotkey:
+                        return
+                    else:
+                        existing_miner.is_deregistered = True
+                        existing_miner.deregistered_date = datetime.utcnow()
+                        new_miner = MinerUptime(uid=uid, hotkey=hotkey)
+                        session.add(new_miner)
                 else:
-                    # add new miner
                     new_miner = MinerUptime(uid=uid, hotkey=hotkey)
                     session.add(new_miner)
+
             except Exception as e:
                 bt.logging.error(f"Error occurred during miner update: {e}")
+                session.rollback()
+                raise
 
     def up(self, uid, hotkey):
         try:
