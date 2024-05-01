@@ -77,5 +77,5 @@ class Metadata:
     
     @property
     def worst_end_block_height(self):
-        return min(filter(lambda x: x.get('end_block_height') is not None, self.hotkeys), key=lambda x: x['end_block_height'])
-
+        hotkey =  min(filter(lambda x: x.get('end_block_height') is not None, self.hotkeys), key=lambda x: x['end_block_height'])
+        return hotkey['end_block_height']
