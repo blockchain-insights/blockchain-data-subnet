@@ -175,7 +175,6 @@ class Validator(BaseValidatorNeuron):
         try:
             hotkey = response.axon.hotkey
             uid_value = uid.item() if uid.numel() == 1 else int(uid.numpy())
-            self.miner_uptime_manager.try_update_miner(uid_value, hotkey)
 
             if not self.is_response_status_code_valid(response):
                 score = self.metagraph.T[uid]/2
@@ -234,7 +233,7 @@ class Validator(BaseValidatorNeuron):
             response_time = response_time - average_ping_time
 
             self.miner_uptime_manager.up(uid_value, hotkey)
-            uptime_score = self.miner_uptime_manager.get_uptime_scores(uid_value, hotkey)
+            uptime_score = self.miner_uptime_manager.get_uptime_scores(hotkey)
 
             score = self.scorer.calculate_score(
                 hotkey,

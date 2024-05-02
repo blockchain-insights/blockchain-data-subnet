@@ -1,3 +1,4 @@
+import traceback
 from contextlib import contextmanager
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.ext.declarative import declarative_base
@@ -7,24 +8,22 @@ import bittensor as bt
 
 Base = declarative_base()
 
-class MinerUptime(Base):
-    __tablename__ = 'miner_uptimes'
+class Miners(Base):
+    __tablename__ = 'miners'
     id = Column(Integer, primary_key=True)
-    uid = Column(Integer, nullable=False)
     hotkey = Column(String, nullable=False)
+    uid = Column(Integer, nullable=False)
     uptime_start = Column(DateTime, default=datetime.utcnow)
-    deregistered_date = Column(DateTime, nullable=True)
-    is_deregistered = Column(Boolean, default=False)
-    __table_args__ = (UniqueConstraint('uid', 'hotkey', name='_uid_hotkey_uc'),)
-    downtimes = relationship('DowntimeLog', back_populates='miner', order_by="desc(DowntimeLog.start_time)")
+    __table_args__ = (UniqueConstraint('hotkey', name='hotkey_uc'),)
+    downtimes = relationship('Downtimes', back_populates='miner', order_by="desc(Downtimes.start_time)")
 
-class DowntimeLog(Base):
-    __tablename__ = 'downtime_logs'
+class Downtimes(Base):
+    __tablename__ = 'downtimes'
     id = Column(Integer, primary_key=True)
-    miner_id = Column(Integer, ForeignKey('miner_uptimes.id'))
+    miner_id = Column(Integer, ForeignKey('miners.id'))
     start_time = Column(DateTime)
     end_time = Column(DateTime, nullable=True)
-    miner = relationship('MinerUptime', back_populates='downtimes')
+    miner = relationship('Miners', back_populates='downtimes')
 
 class MinerUptimeManager:
     def __init__(self, db_url='sqlite:///miners.db'):
@@ -47,126 +46,90 @@ class MinerUptimeManager:
         finally:
             session.close()
 
-    def get_miner(self, uid, hotkey):
-        try:
-            with self.session_scope() as session:
-                # Initialize the query on Miner
-                query = session.query(MinerUptime).options(joinedload(MinerUptime.downtimes))
-
-                # Apply filtering
-                if hotkey is not None:
-                    query = query.filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey)
-                else:
-                    query = query.filter(MinerUptime.uid == uid)
-
-                # Fetch the first result that matches the query
-                miner = query.first()
-
-                if miner:
-                    # Expunge the object from the session to detach it
-                    session.expunge(miner)
-                    # Return the detached miner object
-                    return miner
-
-                return None
-        except Exception:
-            bt.logging.error(f"Error occurred during miner retrieval for {hotkey}")
-            return None
-
-    def try_update_miner(self, uid, hotkey):
-        with self.session_scope() as session:
-            try:
-                existing_miner = session.query(MinerUptime).filter(MinerUptime.uid == uid).first()
-
-                if existing_miner:
-                    if existing_miner.hotkey == hotkey:
-                        return
-                    else:
-                        existing_miner.is_deregistered = True
-                        existing_miner.deregistered_date = datetime.utcnow()
-                        new_miner = MinerUptime(uid=uid, hotkey=hotkey)
-                        session.add(new_miner)
-                else:
-                    new_miner = MinerUptime(uid=uid, hotkey=hotkey)
-                    session.add(new_miner)
-
-            except Exception as e:
-                bt.logging.error(f"Error occurred during miner update: {e}")
-                session.rollback()
-                raise
-
     def up(self, uid, hotkey):
         try:
             with self.session_scope() as session:
-                miner = session.query(MinerUptime).filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey).one()
-                if miner:
-                    self.end_last_downtime(miner.id, session)
-                    return True
-                return False
-        except Exception:
-            bt.logging.error(f"Error occurred during uptime end for {hotkey}")
+                miner = session.query(Miners).filter(Miners.hotkey == hotkey).first()
+                if not miner:
+                    new_miner = Miners(uid=uid, hotkey=hotkey)
+                    session.add(new_miner)
+                elif miner:
+                    if miner.uid != uid:
+                        miner.uid = uid
+                        miner.uptime_start = datetime.utcnow()
+                    last_downtime = session.query(Downtimes).filter(Downtimes.miner_id == miner.id, Downtimes.end_time == None).first()
+                    if last_downtime:
+                        last_downtime.end_time = datetime.utcnow()
+        except Exception as e:
+            bt.logging.error(f"Error occurred during uptime end for {hotkey} {traceback.format_exc()}")
 
     def down(self, uid, hotkey):
         try:
-            """Record the start of a new downtime for a miner, only if the last downtime is closed."""
             with self.session_scope() as session:
-                miner = session.query(MinerUptime).filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey).one()
+                miner = session.query(Miners).filter(Miners.hotkey == hotkey).first()
+                if not miner:
+                    miner = Miners(uid=uid, hotkey=hotkey)
+                    session.add(miner)
                 if miner:
-                    # Check the most recent downtime entry
-                    most_recent_downtime = session.query(DowntimeLog).filter(DowntimeLog.miner_id == miner.id).order_by(DowntimeLog.start_time.desc()).first()
-
-                    # Check if there is no downtime recorded or if the most recent downtime is closed
+                    most_recent_downtime = session.query(Downtimes).filter(Downtimes.miner_id == miner.id).order_by(Downtimes.start_time.desc()).first()
                     if not most_recent_downtime or most_recent_downtime.end_time is not None:
-                        new_downtime = DowntimeLog(miner_id=miner.id, start_time=datetime.utcnow(), end_time=None)
+                        new_downtime = Downtimes(miner_id=miner.id, start_time=datetime.utcnow(), end_time=None)
                         session.add(new_downtime)
-                        return True  # Indicate successful addition of new downtime
-                return False  # No new downtime was added, either miner does not exist or last downtime is still open
-        except Exception:
-            bt.logging.error(f"Error occurred during downtime start for {hotkey}")
+        except Exception as e:
+            bt.logging.error(f"Error occurred during downtime start for {hotkey} {traceback.format_exc()}")
 
-    def end_last_downtime(self, miner_id, session):
-        try:
-            last_downtime = session.query(DowntimeLog).filter(DowntimeLog.miner_id == miner_id, DowntimeLog.end_time == None).first()
-            if last_downtime:
-                last_downtime.end_time = datetime.utcnow()
-        except Exception:
-            bt.logging.error(f"Error occurred during downtime end for {miner_id}")
-            pass
-
-    def calculate_uptime(self, uid, hotkey, period_seconds):
+    def get_miner(self, hotkey):
         try:
             with self.session_scope() as session:
-                query = session.query(MinerUptime).options(joinedload(MinerUptime.downtimes)).filter(MinerUptime.uid == uid, MinerUptime.hotkey == hotkey)
+                miner = session.query(Miners).options(joinedload(Miners.downtimes)).filter(Miners.hotkey == hotkey).first()
+                if miner:
+                    session.expunge(miner)
+                    return miner
+                return None
+        except Exception as e:
+            bt.logging.error(f"Error occurred during miner retrieval for {hotkey} {traceback.format_exc()}")
+            return None
+
+    def calculate_uptimes(self, hotkey, period_seconds):
+        try:
+            with self.session_scope() as session:
+                query = session.query(Miners).options(joinedload(Miners.downtimes)).filter(Miners.hotkey == hotkey)
                 miner = query.first()
                 if miner is None:
                     return 0  # No miner found for the UID and hotkey provided
 
-                active_period_end = miner.deregistered_date if miner.is_deregistered else datetime.utcnow()
+                active_period_end = datetime.utcnow()
                 active_period_start = miner.uptime_start
 
-                # Adjust active period based on period_seconds if needed
-                if period_seconds:
-                    adjusted_start = max(active_period_start, datetime.utcnow() - timedelta(seconds=period_seconds))
+                result = {}
+
+                for period_second in period_seconds:
+                    adjusted_start = max(active_period_start, datetime.utcnow() - timedelta(seconds=period_second))
                     if adjusted_start > active_period_end:
-                        return 0  # No active time in the specified period
+                        result[period_second] = 0
+                        continue
 
-                active_seconds = (active_period_end - active_period_start).total_seconds()
-                total_downtime = sum(
-                    (log.end_time - log.start_time).total_seconds()
-                    for log in miner.downtimes
-                    if log.start_time >= active_period_start and log.end_time and log.end_time <= active_period_end
-                )
+                    active_seconds = (active_period_end - active_period_start).total_seconds()
+                    total_downtime = sum(
+                        (log.end_time - log.start_time).total_seconds()
+                        for log in miner.downtimes
+                        if log.start_time >= active_period_start and log.end_time and log.end_time <= active_period_end
+                    )
 
-                actual_uptime_seconds = max(0, active_seconds - total_downtime)
-                return actual_uptime_seconds / active_seconds if active_seconds > 0 else 0
+                    actual_uptime_seconds = max(0, period_second - total_downtime)
+                    result[period_second] = actual_uptime_seconds / period_second if active_seconds > 0 else 0
+
+                return result
+
         except Exception as e:
-            bt.logging.error(f"Error occurred during uptime calculation for {hotkey}: {str(e)}")
-            raise e  # Rethrow the exception after logging
+            bt.logging.error(f"Error occurred during uptime calculation for {miner.hotkey}: {traceback.format_exc()}")
+            raise e
 
-    def get_uptime_scores(self, uid, hotkey):
-        day = self.calculate_uptime(uid, hotkey, 86400)
-        week = self.calculate_uptime(uid, hotkey, 604800)
-        month = self.calculate_uptime(uid, hotkey, 2629746)
-        average = (day + week + month) / 3
-        return {'daily': day, 'weekly': week, 'monthly': month, 'average': average}
+    def get_uptime_scores(self, hotkey):
+        day = 86400
+        week = 604800
+        month = 2629746
+        result = self.calculate_uptimes(hotkey, [day, week, month])
+        average = (result[day] + result[week] + result[month]) / 3
+        return {'daily': result[day], 'weekly': result[week], 'monthly': result[month], 'average': average}
 
