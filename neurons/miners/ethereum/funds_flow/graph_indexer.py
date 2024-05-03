@@ -21,12 +21,12 @@ class GraphIndexer:
             self.graph_db_url = graph_db_url
 
         if graph_db_user is None:
-            self.graph_db_user = os.environ.get("GRAPH_DB_USER") or ""
+            self.graph_db_user = os.environ.get("GRAPH_DB_USER") or "user"
         else:
             self.graph_db_user = graph_db_user
 
         if graph_db_password is None:
-            self.graph_db_password = os.environ.get("GRAPH_DB_PASSWORD") or ""
+            self.graph_db_password = os.environ.get("GRAPH_DB_PASSWORD") or "pwd"
         else:
             self.graph_db_password = graph_db_password
 

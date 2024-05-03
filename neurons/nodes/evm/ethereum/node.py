@@ -1,6 +1,9 @@
 import argparse
 import os
+import json
 from Crypto.Hash import SHA256
+from dotenv import load_dotenv
+
 from insights.protocol import Challenge
 import random
 
@@ -15,9 +18,12 @@ from neurons.setup_logger import setup_logger
 parser = argparse.ArgumentParser()
 bt.logging.add_args(parser)
 logger = setup_logger("EvmNode")
+load_dotenv()
+
  
 class EthereumNode(Node):
     def __init__(self, node_rpc_url: str = None):
+        super().__init__()
         if node_rpc_url is None:
             self.node_rpc_url = (
                 os.environ.get("ETHEREUM_NODE_RPC_URL")
@@ -49,12 +55,62 @@ class EthereumNode(Node):
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
 
+    def get_block_and_txs_from_graphql(self, from_block, to_block):
+        logger.info(f"Getting blocks {from_block} - {to_block}")
+        query = """
+         query txInfo($fromBlock: Long!, $toBlock: Long!) {
+          blocks(from: $fromBlock, to: $toBlock) {
+            hash
+            number
+            nonce
+            timestamp
+            parent {
+              hash
+            }
+            difficulty
+            transactionCount
+            transactions {
+              logs {
+                topics
+                data
+                account {
+                  address
+                }
+              }
+              gasUsed
+              gasPrice
+              hash
+              from {
+                address
+                balance
+              }
+              to {
+                address
+                balance
+              }
+              value
+              rawReceipt
+            }
+          }
+        }
+        """
+
+        variables = {
+            'fromBlock': from_block,
+            'toBlock': to_block
+        }
+        try:
+            result = requests.post(os.getenv("ETHEREUM_GRAPHQL_URL"), headers={"Authorization": "Bearer ecb22bc24e7d4061f7ed690ccd5846d7d73f5d2b9733267e12f56790398d908a", "Content-Type": "application/json"}, json={"query": query, "variables": variables})
+            return json.loads(result.content)['data']['blocks']
+        except Exception as e:
+            logger.error(f"Failed to fetch graphql data {e}")
+
     def get_transaction_by_hash(self, tx_hash): # get the transaction details from tx hash
         try:
             if self.web3.is_connected:
                 return self.web3.eth.get_transaction(tx_hash)
             else:
-                logger.info(f("RPC Provider disconnected."))
+                logger.info("RPC Provider disconnected.")
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
     
@@ -65,7 +121,7 @@ class EthereumNode(Node):
                 contract = self.web3.eth.contract(address=contractAddress, abi=jsonAbi)
                 return contract.functions.symbol().call()
             else:
-                logger.info(f("RPC Provider disconnected."))
+                logger.info(f"RPC Provider disconnected.")
         except:
             return contractAddress
     

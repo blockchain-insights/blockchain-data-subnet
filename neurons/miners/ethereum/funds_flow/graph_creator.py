@@ -1,5 +1,6 @@
+import logging
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict
 from decimal import Decimal
 import asyncio
 from Crypto.Hash import SHA256
@@ -40,168 +41,164 @@ class Transaction:
     value_wei: str
     symbol: str = "ETH" # ETH, USDT, USDC, ...
 
+@dataclass
+class Block:
+    hash: str
+    number: str
+    nonce: str
+    timestamp: str
+    parent: str
+    difficulty: str
+    transactionCount: str
+    transactions: List[Transaction]
+
+@dataclass
+class GraphQlBlock:
+    number: int
+    hash: str
+    timestamp: int # Unix epoch time
+    parent_hash: str
+    nonce: int
+    difficulty: int
+    transactions: List["GraphQlTransaction"] = field(default_factory=list)
+
+@dataclass
+class GraphQlLog:
+    topics: List[str]
+    data: str
+    account: str
+
+@dataclass
+class GraphQlTransaction:
+    block_hash: str
+    block_number: int
+    tx_hash: str
+    timestamp: int # Unix epoch time
+    gas_used: str
+    gas_price: str
+    checksum: str # validation checksum for miner
+    from_address: Account
+    to_address: Account
+    value_wei: str
+    raw_receipt: str
+    symbol: str = "ETH" # ETH, USDT, USDC, ...
+    logs: List[GraphQlLog] = field(default_factory=list)
+
+
+
 
 class GraphCreator:
     def __init__(self):
         self.tokenTypes = {}
 
-    def create_in_memory_graph_from_block(self, ethereum_node, block_data):
-        
+    def create_graphqltransaction_from_graphql_request(self, tx, block: GraphQlBlock) -> GraphQlTransaction:
+        logs = [GraphQlLog(topics=log['topics'], data=log['data'], account=log['account']['address']) for log in tx['logs']]
+        if tx is None:
+            logging.error(f"{block}")
+
+        from_address = Account(
+            address=tx['from']['address'],
+            balance=tx['from']['balance'],
+            timestamp=block.timestamp,
+        )
+        to_address = Account(
+            address=tx['to']['address'] if tx['to'] else "None",
+            balance=tx['to']['balance'] if tx['to'] else "0",
+            timestamp=block.timestamp,
+        )
+
+        binary_address = tx['hash'] + block.hash + from_address.address + to_address.address
+        checksum = sha256_result = SHA256.new(binary_address.encode('utf-8')).hexdigest()
+
+        return GraphQlTransaction(
+            logs=logs,
+            gas_used=tx['gasUsed'],
+            gas_price=tx['gasPrice'],
+            from_address=from_address,
+            to_address=to_address,
+            tx_hash=tx['hash'],
+            value_wei=tx['value'],
+            raw_receipt=tx['rawReceipt'],
+            block_number=block.number,
+            block_hash=block.hash,
+            timestamp=block.timestamp,
+            checksum=checksum
+        )
+
+    def create_in_memory_graph_from_block_graphql(self, ethereum_node, block_data) -> GraphQlBlock:
         from dotenv import load_dotenv
         load_dotenv()
 
-        addresses = []
-        block_number = int(block_data["number"])
-        block_hash = "".join(["{:02X}".format(b) for b in block_data["hash"]])
-        timestamp = int(block_data["timestamp"])
-        parent_hash = "".join(["{:02X}".format(b) for b in block_data["parentHash"]])
+        data = block_data
 
-        block = Block(
-            block_number = block_number,
-            block_hash = block_hash,
-            timestamp = timestamp,
-            parent_hash = parent_hash,
-            nonce = block_data.get("nonce", 0),
-            difficulty = block_data.get("totalDifficulty", 0)
+        block = GraphQlBlock(
+            number=int(data["number"], 0),
+            hash=data["hash"],
+            timestamp=int(data["timestamp"], 0),
+            parent_hash=data["parent"]["hash"],
+            nonce=data["nonce"],
+            difficulty=data["difficulty"],
+            transactions=[]
         )
 
-        transactions = block_data["transactions"]
+        txs = [self.create_graphqltransaction_from_graphql_request(tx, block) for tx in data['transactions']]
 
-        nativeTxResponses = ethereum_node.get_transaction(transactions)
+        for idx, tx in enumerate(txs):
+            if (tx.from_address.address and tx.to_address.address and tx.value_wei
+                    and tx.from_address.address is not None and tx.from_address.address is not None):
 
-        tokenTransactions = []
-
-        for nativeResp in nativeTxResponses:
-            nativeTx_data = nativeResp["result"]
-            if 'from' in nativeTx_data and 'to' in nativeTx_data and 'value' in nativeTx_data and nativeTx_data["from"] != None and nativeTx_data["to"] != None:
-                if int(nativeTx_data.get("value", 0), 0) > 0:
-
-                    from_address = nativeTx_data["from"]
-                    to_address = nativeTx_data["to"]
-
-                    if nativeTx_data["from"] == '':
-                        continue
-                    if nativeTx_data["to"] == '':
-                        continue
-
-                    from_account = Account(
-                        address = from_address,
-                        timestamp = timestamp,
-                        balance = '0'
-                    )
-
-                    to_account = Account(
-                        address = to_address,
-                        timestamp = timestamp,
-                        balance = '0'
-                    )
-
-                    binary_address = nativeTx_data["hash"] + nativeTx_data["blockHash"] + nativeTx_data["from"] + nativeTx_data["to"]
-                    checksum = sha256_result = SHA256.new(binary_address.encode('utf-8')).hexdigest()
-                    
-                    transaction = Transaction(
-                        block_hash = nativeTx_data["blockHash"],
-                        block_number = int(nativeTx_data["blockNumber"], 0),
-                        tx_hash = nativeTx_data["hash"],
-                        timestamp = timestamp,
-                        gas_used = str(int(nativeTx_data.get("gas", 0), 0) * int(nativeTx_data.get("gasPrice", 0), 0)),
-                        from_address = from_account,
-                        to_address = to_account,
-                        value_wei = str(int(nativeTx_data.get("value", 0), 0)),
-                        checksum = checksum,
-                        symbol = "ETH" # for now, we assume only original transactions not smart contract executions, so the symbol is "ETH"
-                    )
-
-                    addresses.append(from_address)
-                    addresses.append(to_address)
-                    block.transactions.append(transaction)
+                if int(tx.value_wei, 0) > 0:
+                    block.transactions.append(tx)
 
                 # Append native token transactions
-                if int(nativeTx_data.get("value", 0), 0) == 0:
-                    tokenTransactions.append(nativeTx_data["hash"])
+                if int(tx.value_wei, 0) == 0:
+                    if tx.logs and len(tx.logs) > 0:
+                        log = tx.logs[0]
+                        if log.topics and len(log.topics) > 2:
+                            try:
+                                contract_address = Web3.to_checksum_address(log.account)
+                                symbol = ''
+                                if contract_address not in self.tokenTypes:
+                                    symbol = ethereum_node.get_symbol_name(contract_address)
+                                    self.tokenTypes.update({contract_address: symbol})
+                                else:
+                                    symbol = self.tokenTypes[contract_address]
 
-        # token transactions
-        if len(tokenTransactions) > 0:
-            rpcTxResponses = ethereum_node.get_transactionReceipt(tokenTransactions) # wait till all tx details requests resolved
+                                from_address = abi.decode(['address'], bytes.fromhex(log.topics[1][2:]))
+                                to_address = abi.decode(['address'], bytes.fromhex(log.topics[2][2:]))
+                                from_address = ''.join(from_address)
+                                to_address = ''.join(to_address)
 
-            for resp in rpcTxResponses:
-                tx_data = resp["result"]
-                # Transaction is token transfer
-                if 'logs' in tx_data and len(tx_data["logs"]) > 0:
-                    log = tx_data["logs"][0]
-                    if 'topics' in log and len(log["topics"]) > 2:
-                        try:
-                            contractAddress = Web3.to_checksum_address(log["address"])
-                            symbol = ''
-                            if contractAddress not in self.tokenTypes:
-                                symbol = ethereum_node.get_symbol_name(contractAddress)
-                                self.tokenTypes.update({contractAddress: symbol})
-                            else:
-                                symbol = self.tokenTypes[contractAddress]
+                                if from_address is None:
+                                    continue
+                                if to_address is None:
+                                    continue
 
-                            from_address = abi.decode(['address'], bytes.fromhex(log["topics"][1][2:]))
-                            to_address = abi.decode(['address'], bytes.fromhex(log["topics"][2][2:]))
-                            from_address = ''.join(from_address)
-                            to_address = ''.join(to_address)
+                                from_account = Account(
+                                    address=from_address,
+                                    timestamp=block.timestamp,
+                                    balance='0'
+                                )
 
-                            if from_address is None:
+                                to_account = Account(
+                                    address=to_address,
+                                    timestamp=block.timestamp,
+                                    balance='0'
+                                )
+
+                                value = abi.decode(['uint256'], bytes.fromhex(log.data[2:]))
+
+                                binary_address = tx.tx_hash + tx.block_hash + from_address + to_address
+                                checksum = sha256_result = SHA256.new(binary_address.encode('utf-8')).hexdigest()
+
+                                tx.from_address = from_account
+                                tx.to_address = to_account
+                                tx.value_wei = value
+                                tx.symbol = symbol
+
+                                block.transactions.append(tx)
+                            except Exception as e:
+                                logging.error(f"Failed to create tx {e}")
                                 continue
-                            if to_address is None:
-                                continue
 
-                            from_account = Account(
-                                address = from_address,
-                                timestamp = timestamp,
-                                balance = '0'
-                            )
-
-                            to_account = Account(
-                                address = to_address,
-                                timestamp = timestamp,
-                                balance = '0'
-                            )
-
-                            value = abi.decode(['uint256'], bytes.fromhex(log["data"][2:]));
-
-                            binary_address = tx_data["transactionHash"] + tx_data["blockHash"] + from_address + to_address
-                            checksum = sha256_result = SHA256.new(binary_address.encode('utf-8')).hexdigest()
-
-                            transaction = Transaction(
-                                block_hash = tx_data["blockHash"],
-                                block_number = int(tx_data["blockNumber"], 0),
-                                tx_hash = tx_data["transactionHash"],
-                                gas_used = str(int(tx_data.get("gasUsed", 0), 0)),
-                                from_address = from_account,
-                                to_address = to_account,
-                                timestamp = timestamp,
-                                value_wei = str(int(''.join(map(str, value)), 0)),
-                                checksum = checksum,
-                                symbol = symbol
-                            )
-
-                            addresses.append(from_address)
-                            addresses.append(to_address)
-                            block.transactions.append(transaction)
-                            
-                        except:
-                            continue
-
-        if len(addresses) > 0:
-            balances = ethereum_node.get_balance_by_addresses(addresses)
-            
-            for index in range(len(block.transactions) - 1):
-                from_account = Account(
-                    address = block.transactions[index].from_address.address,
-                    timestamp = block.transactions[index].from_address.timestamp,
-                    balance = str(int(balances[index * 2]["result"], 0))
-                )
-
-                to_account = Account(
-                    address = block.transactions[index].to_address.address,
-                    timestamp = block.transactions[index].to_address.timestamp,
-                    balance = str(int(balances[index * 2 + 1]["result"], 0))
-                )
-                block.transactions[index].from_address = from_account
-                block.transactions[index].to_address = to_account
-
-        return {"block": block}
+        return block

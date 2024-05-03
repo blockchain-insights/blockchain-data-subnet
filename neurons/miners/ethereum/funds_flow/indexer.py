@@ -1,7 +1,7 @@
+import traceback
 import os
 import signal
 import time
-from threading import Thread
 from math import floor
 from neurons.setup_logger import setup_logger
 from neurons.nodes.evm.ethereum.node import EthereumNode
@@ -11,10 +11,14 @@ from neurons.miners.ethereum.funds_flow.graph_search import GraphSearch
 
 # Global flag to signal shutdown
 shutdown_flag = False
+MIN_BLOCKS_PER_QUERY = 10
+BLOCKS_PER_QUERY_COUNT = 1000
+TXS_PER_BLOCK_AVG = 0
 CACHE_COUNT = 5000
-tx = { 'cacheCnt': 0, 'cacheTx': [], 'inprogress': False }
+tx = {'cacheCnt': 0, 'cacheTx': [], 'inprogress': False}
 
 logger = setup_logger("EthereumIndexer")
+
 
 def shutdown_handler(signum, frame):
     global shutdown_flag
@@ -23,9 +27,11 @@ def shutdown_handler(signum, frame):
     )
     shutdown_flag = True
 
+
 # Register the shutdown handler for SIGINT and SIGTERM
 signal.signal(signal.SIGINT, shutdown_handler)
 signal.signal(signal.SIGTERM, shutdown_handler)
+
 
 def log_txHash_crashed_by_memgraph(transaction):
     transactionHash = ''
@@ -35,18 +41,21 @@ def log_txHash_crashed_by_memgraph(transaction):
     f.write(transactionHash)
     f.close()
 
+
 def log_blockHeight_crashed_by_rpc(block_height):
     f = open("eth_crashed_block_by_rpc.txt", "a")
     f.write(f"{block_height}\n")
     f.close()
+
 
 def log_finished_thread_info(index, start, last, time):
     f = open("eth_finished_thread.txt", "a")
     f.write(f"Index: {index}, Rage({start}, {last}), Total Spent Time: {time}\n")
     f.close()
 
+
 def single_index(_graph_creator, _graph_indexer, _graph_search, start_height: int, end_height: int, is_reverse_order: bool = False):
-    global shutdown_flag
+    global shutdown_flag, BLOCKS_PER_QUERY_COUNT
     ethereum_node = EthereumNode()
 
     start = start_height
@@ -65,124 +74,48 @@ def single_index(_graph_creator, _graph_indexer, _graph_search, start_height: in
     buf_time = time.time()
 
     while not shutdown_flag and (last - start) * direction >= 0:
+        to_block = min(start + BLOCKS_PER_QUERY_COUNT, last)
         try:
-            block = ethereum_node.get_block_by_height(start)
-            if len(block["transactions"]) <= 0:
-                start += direction
+            blocks = ethereum_node.get_block_and_txs_from_graphql(start, to_block)
+            txs_count = sum(len(block['transactions']) for block in blocks)
+            blocks_with_txs = [block for block in blocks if block['transactions']]
+            blocks = []
+            avg_txs = txs_count / len(blocks_with_txs) if len(blocks_with_txs) > 0 else 0
+
+            if avg_txs * len(blocks_with_txs) >= CACHE_COUNT:
+                BLOCKS_PER_QUERY_COUNT = max(MIN_BLOCKS_PER_QUERY, BLOCKS_PER_QUERY_COUNT - 5)
+
+            if txs_count == 0:
+                start += direction + BLOCKS_PER_QUERY_COUNT
                 continue
 
-            in_memory_graph = _graph_creator.create_in_memory_graph_from_block(ethereum_node, block)
-            newTransaction = in_memory_graph["block"].transactions
-            newTransactionCnt = len(newTransaction)
+            logger.info("Blocks {} to {} have {} transactions".format(start, to_block, txs_count))
 
-            if newTransactionCnt <= 0:
-                start += direction
-                continue
+            for block in blocks_with_txs:
+                in_memory_graph = _graph_creator.create_in_memory_graph_from_block_graphql(ethereum_node, block)
+                new_transaction = in_memory_graph.transactions
+                new_transaction_cnt = len(new_transaction)
 
-            tx['cacheCnt'] += newTransactionCnt
-            tx['cacheTx'] = tx['cacheTx'] + newTransaction
-
-            if tx['cacheCnt'] > CACHE_COUNT or (last - start) * direction == 0:
-                tx['inprogress'] = True
-                success = _graph_indexer.create_graph_focused_on_funds_flow(tx['cacheTx'])
-
-                min_block_height_cache, max_block_height_cache = _graph_search.get_min_max_block_height_cache()
-                _graph_indexer.set_min_max_block_height_cache(min(min_block_height_cache, start), max(max_block_height_cache, start))
-
-                if success:
-                    time_taken = time.time() - buf_time
-                    formatted_tps = tx['cacheCnt'] / time_taken if time_taken > 0 else float("inf")
-                    logger.info(f"[Main Thread] - Finished Block: {start}, TPS: {formatted_tps}, Spent time: {time.time() - start_time}\n")
-                    
-                else:
-                    # sometimes we may have memgraph server connect issue catch all failed block so we can retry
-                    log_txHash_crashed_by_memgraph(0, tx['cacheTx'])
-
-                tx['cacheTx'].clear()
-                tx['cacheCnt'] = 0
-                buf_time = time.time()
-                tx['inprogress'] = False
-
-            start += direction
-
-            if shutdown_flag:
-                logger.info(f"Finished indexing block {start} before shutdown.")
-                break
-        except Exception as e:
-            # sometimes we may have rpc server connect issue catch all failed block so we can retry
-            log_blockHeight_crashed_by_rpc(start)
-            start += direction
-    
-    logger.info(f"Finished Single Main Indexing from {start_height} to {end_height}")
-    log_finished_thread_info(0, start_height, end_height, time.time() - start_time)
-
-def index_blocks(_graph_creator, _graph_indexer, _graph_search, start_height):
-    global shutdown_flag
-    ethereum_node = EthereumNode()
-    skip_blocks = 6 # Set the number of block confirmations
-
-    block_height = start_height
-    start_time = time.time()
-
-    while not shutdown_flag:
-        current_block_height = ethereum_node.get_current_block_height() - skip_blocks
-        buf_time = time.time()
-
-        if current_block_height - skip_blocks < 0:
-            logger.info(f"Waiting min {skip_blocks} for blocks to be mined.")
-            time.sleep(3)
-            continue
-
-        if block_height > current_block_height:
-            if tx['cacheCnt'] > CACHE_COUNT:
-                tx['inprogress'] = True
-                success = _graph_indexer.create_graph_focused_on_funds_flow(tx['cacheTx'])
-
-                if success:
-                    time_taken = time.time() - buf_time
-                    formatted_tps = tx['cacheCnt'] / time_taken if time_taken > 0 else float("inf")
-                    logger.info(f"[Main Thread] TPS: {formatted_tps}, Spent time: {time.time() - start_time}\n")
-                else:
-                    # sometimes we may have memgraph server connect issue catch all failed block so we can retry
-                    log_txHash_crashed_by_memgraph(tx['cacheTx'])
-
-                tx['cacheTx'].clear()
-                tx['cacheCnt'] = 0
-                buf_time = time.time()
-                tx['inprogress'] = False
-
-            continue
-
-        while block_height <= current_block_height - skip_blocks:
-            try:
-                block = ethereum_node.get_block_by_height(block_height)
-                if len(block["transactions"]) <= 0:
-                    block_height += 1
+                if new_transaction_cnt <= 0:
+                    start += direction
                     continue
 
-                in_memory_graph = _graph_creator.create_in_memory_graph_from_block(ethereum_node, block)
-                newTransaction = in_memory_graph["block"].transactions
-                newTransactionCnt = len(newTransaction)
+                tx['cacheCnt'] += new_transaction_cnt
+                tx['cacheTx'] = tx['cacheTx'] + new_transaction
 
-                if newTransactionCnt <= 0:
-                    block_height += 1
-                    continue
-
-                tx['cacheCnt'] += newTransactionCnt
-                tx['cacheTx'] = tx['cacheTx'] + newTransaction
-
-                if tx['cacheCnt'] > CACHE_COUNT:
+                if tx['cacheCnt'] > CACHE_COUNT or (last - start) * direction == 0:
                     tx['inprogress'] = True
                     success = _graph_indexer.create_graph_focused_on_funds_flow(tx['cacheTx'])
 
                     min_block_height_cache, max_block_height_cache = _graph_search.get_min_max_block_height_cache()
-                    _graph_indexer.set_min_max_block_height_cache(min(min_block_height_cache, block_height), max(max_block_height_cache, block_height))
+                    _graph_indexer.set_min_max_block_height_cache(min(min_block_height_cache, start), max(max_block_height_cache, start))
 
                     if success:
                         time_taken = time.time() - buf_time
                         formatted_tps = tx['cacheCnt'] / time_taken if time_taken > 0 else float("inf")
-                        logger.info(f"[Main Thread] - Finished Block: {block_height}, TPS: {formatted_tps}, Spent time: {time.time() - start_time}\n")
-                        
+                        logger.info(f"[Main Thread] - Finished Block: {start}, TPS: {formatted_tps}, Spent time: {time.time() - start_time}\n")
+                        start += min(to_block + direction, last)
+
                     else:
                         # sometimes we may have memgraph server connect issue catch all failed block so we can retry
                         log_txHash_crashed_by_memgraph(0, tx['cacheTx'])
@@ -192,65 +125,27 @@ def index_blocks(_graph_creator, _graph_indexer, _graph_search, start_height):
                     buf_time = time.time()
                     tx['inprogress'] = False
 
-                block_height += 1
+                    if shutdown_flag:
+                        logger.info(f"Finished indexing block {start} before shutdown.")
+                        break
 
-                if shutdown_flag:
-                    logger.info(f"Finished indexing block {block_height} before shutdown.")
-                    break
-            except Exception as e:
-                # sometimes we may have rpc server connect issue catch all failed block so we can retry
-                log_blockHeight_crashed_by_rpc(block_height)
-                block_height += 1
 
-def index_blocks_by_last_height(thread_index, _graph_creator, start, last):
-    global shutdown_flag
-    ethereum_node = EthereumNode()
-    start_time = time.time()
 
-    index = thread_index + 1
-    log_display = False
 
-    block_height = start
-    current_block_height = last
-
-    while block_height <= current_block_height and not shutdown_flag:
-        try:
-            inprogress_flag = tx["inprogress"]
-            if inprogress_flag:
-                if not log_display:
-                    formatted_percent = "{:6.4f}".format(100 * (block_height - start)/(last - start))
-                    logger.info(f"[Sub Thread {index}], from_height: {start}, to_height: {last}, Complete: {formatted_percent}%\n")
-                    log_display = True
-                time.sleep(0.01)
-                continue
-            else:
-                log_display = False
-                block = ethereum_node.get_block_by_height(block_height)
-                if len(block["transactions"]) <= 0:
-                    block_height += 1
-                    continue
-
-                in_memory_graph = _graph_creator.create_in_memory_graph_from_block(ethereum_node, block)
-                newTransaction = in_memory_graph["block"].transactions
-                newTransactionCnt = len(newTransaction)
-
-                if newTransactionCnt <= 0:
-                    block_height += 1
-                    continue
-
-                tx['cacheCnt'] += newTransactionCnt
-                tx['cacheTx'] = tx['cacheTx'] + newTransaction
-                block_height += 1
-
-            if shutdown_flag:
-                logger.info(f"Finished indexing block {block_height} before shutdown.")
-                break
         except Exception as e:
+            logger.error(traceback.format_exc())
+            logger.error(f"Exception {e.__traceback__.tb_lineno}")
+            logger.error(f"Exception {e.__traceback__.tb_lasti}")
+            logger.error(f"Exception {e.__traceback__.tb_frame.f_code}")
+            logger.error(f"Exception {e.__dict__}")
             # sometimes we may have rpc server connect issue catch all failed block so we can retry
-            log_blockHeight_crashed_by_rpc(block_height)
-            block_height += 1
+            log_blockHeight_crashed_by_rpc(start)
+            #start += min(to_block + direction, last)
+    
+    logger.info(f"Finished Single Main Indexing from {start_height} to {end_height}")
+    log_finished_thread_info(0, start_height, end_height, time.time() - start_time)
 
-    log_finished_thread_info(index, start, last, time.time() - start_time)
+
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -285,7 +180,10 @@ if __name__ == "__main__":
         indexed_min_block_height = sub_start_height
     graph_indexer.set_min_max_block_height_cache(indexed_min_block_height, indexed_max_block_height)
 
+    logger.info(f"indexed_min_block_height: {indexed_min_block_height} - indexed_max_block_height: {indexed_max_block_height}")
+
     current_block_height = ethereum_node.get_current_block_height()
+    logger.info(f"ETH node - Current block height: {current_block_height}")
     if sub_last_height_str:
         sub_last_height = int(sub_last_height_str)
         if current_block_height > sub_last_height:
@@ -293,12 +191,6 @@ if __name__ == "__main__":
     else:
         sub_last_height = current_block_height
 
-    # Config Sub Threads
-    num_threads = 8 # set number of thread 8 by default
-    num_thread_str = os.getenv('ETHEREUM_SUB_THREAD_CNT', None)
-    if num_thread_str:
-        num_threads = int(num_thread_str)
-    
     # Config Main Thread
     main_start_height = 0
     main_last_height = 0
@@ -315,31 +207,12 @@ if __name__ == "__main__":
         is_reverse_order = bool(int(is_reverse_order_str))
 
     try:
-        # Main Indexer running with Multi Sub Indexers
-        if num_threads > 0 and sub_start_height > 0 and sub_last_height > 0:
-            thread_depth = floor((sub_last_height - sub_start_height) / num_threads)
-            restHeight = (sub_last_height - sub_start_height) - thread_depth * num_threads
-
-            num_threads = 1 if thread_depth == 0 else num_threads
-
-            for i in range(num_threads):
-                start = sub_start_height + i * thread_depth
-                last = sub_start_height + (i + 1) * thread_depth - 1
-                if i == num_threads - 1:
-                    last = sub_start_height + (i + 1) * thread_depth + restHeight
-                thread = Thread(target=index_blocks_by_last_height, args=(i, graph_creator, start, last))
-                thread.start()
-            
-            logger.info('-- Main thread is running for indexing recent blocks --')
-            index_blocks(graph_creator, graph_indexer, graph_search, sub_last_height + 1)
-
         # Only Main Indexer running
+        if main_start_height > 0 and main_last_height > 0:
+            logger.info(f'-- Main thread is running for indexing based on min({main_start_height}) & max({main_last_height}) block numbers --')
+            single_index(graph_creator, graph_indexer, graph_search, main_start_height, main_last_height, is_reverse_order)
         else:
-            if main_start_height > 0 and main_last_height > 0:
-                logger.info(f'-- Main thread is running for indexing based on min({main_start_height}) & max({main_last_height}) block numbers --')
-                single_index(graph_creator, graph_indexer, graph_search, main_start_height, main_last_height, is_reverse_order)
-            else:
-                logger.error('ETHEREUM_MAIN_START_BLOCK_HEIGHT & ETHEREUM_MAIN_END_BLOCK_HEIGHT should be given by ENV')
+            logger.error('ETHEREUM_MAIN_START_BLOCK_HEIGHT & ETHEREUM_MAIN_END_BLOCK_HEIGHT should be given by ENV')
 
     except Exception as e:
         logger.error(f"Retry failed with error: {e}")
