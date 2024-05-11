@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import time
 import torch
 import typing
@@ -102,10 +103,6 @@ class Miner(BaseMinerNeuron):
             blacklist_fn=self.discovery_blacklist,
             priority_fn=self.discovery_priority,
         ).attach(
-            forward_fn=self.query,
-            blacklist_fn=self.query_blacklist,
-            priority_fn=self.query_priority,
-        ).attach(
             forward_fn=self.challenge,
             blacklist_fn=self.challenge_blacklist,
             priority_fn=self.challenge_priority,
@@ -152,15 +149,6 @@ class Miner(BaseMinerNeuron):
             synapse.output = None
         return synapse
 
-    async def query(self, synapse: protocol.Query) -> protocol.Query:
-        synapse.output = {}
-        try:
-            synapse.output["result"] = self.graph_search.execute_query(query=synapse)
-        except Exception as e:
-            bt.logging.error(traceback.format_exc())
-            synapse.output["error"] = e
-        return synapse
-
     async def challenge(self, synapse: protocol.Challenge ) -> protocol.Challenge:
         try:
             bt.logging.info(f"challenge recieved: {synapse}")
@@ -186,9 +174,15 @@ class Miner(BaseMinerNeuron):
     async def benchmark(self, synapse: protocol.Benchmark) -> protocol.Benchmark:
         try:
             bt.logging.info(f"Executing benchmark query: {synapse.query}")
-
-            result = self.graph_search.execute_benchmark_query(cypher_query=synapse.query)
-            synapse.output = result[0]
+            pattern = self.miner_config.get_benchmark_query_regex(self.config.network)
+            regex = re.compile(pattern)
+            match = regex.fullmatch(synapse.query)
+            if match is None:
+                bt.logging.error(f"Invalid benchmark query: {synapse.query}")
+                synapse.output = None
+            else:
+                result = self.graph_search.execute_benchmark_query(cypher_query=synapse.query)
+                synapse.output = result[0]
 
             bt.logging.info(f"Serving miner benchmark output: {synapse.output}")
         except Exception as e:
@@ -200,9 +194,6 @@ class Miner(BaseMinerNeuron):
 
     async def discovery_blacklist(self, synapse: protocol.Discovery) -> typing.Tuple[bool, str]:
         return blacklist.discovery_blacklist(self, synapse=synapse)
-
-    async def query_blacklist(self, synapse: protocol.Query) -> typing.Tuple[bool, str]:
-        return blacklist.query_blacklist(self, synapse=synapse)
 
     async def challenge_blacklist(self, synapse: protocol.Challenge) -> typing.Tuple[bool, str]:
         return blacklist.base_blacklist(self, synapse=synapse)
@@ -226,9 +217,6 @@ class Miner(BaseMinerNeuron):
         return self.base_priority(synapse=synapse)
 
     async def discovery_priority(self, synapse: protocol.Discovery) -> float:
-        return self.base_priority(synapse=synapse)
-
-    async def query_priority(self, synapse: protocol.Query) -> float:
         return self.base_priority(synapse=synapse)
 
     async def challenge_priority(self, synapse: protocol.Challenge) -> float:
