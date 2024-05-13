@@ -254,38 +254,41 @@ class Validator(BaseValidatorNeuron):
             return None
 
     async def forward(self):
-        uids = next(self.uid_batch_generator, None)
-        if uids is None:
-            self.uid_batch_generator = get_uids_batch(self, self.config.neuron.sample_size)
+        try:
             uids = next(self.uid_batch_generator, None)
+            if uids is None:
+                self.uid_batch_generator = get_uids_batch(self, self.config.neuron.sample_size)
+                uids = next(self.uid_batch_generator, None)
 
-        axons = [self.metagraph.axons[uid] for uid in uids]
+            axons = [self.metagraph.axons[uid] for uid in uids]
 
-        responses = self.dendrite.query(
-            axons,
-            Discovery(),
-            deserialize=True,
-            timeout=self.validator_config.discovery_timeout,
-        )
+            responses = self.dendrite.query(
+                axons,
+                Discovery(),
+                deserialize=True,
+                timeout=self.validator_config.discovery_timeout,
+            )
 
-        responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
-        benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
+            responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
+            benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
 
-        self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
+            self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
-        rewards = [
-            self.get_reward(response, uid, benchmarks_result) for response, uid in zip(responses, uids)
-        ]
+            rewards = [
+                self.get_reward(response, uid, benchmarks_result) for response, uid in zip(responses, uids)
+            ]
 
-        filtered_data = [(reward, uid) for reward, uid in zip(rewards, uids) if reward is not None]
+            filtered_data = [(reward, uid) for reward, uid in zip(rewards, uids) if reward is not None]
 
-        if filtered_data:
-            rewards, uids = zip(*filtered_data)
+            if filtered_data:
+                rewards, uids = zip(*filtered_data)
 
-            rewards = torch.FloatTensor(rewards)
-            self.update_scores(rewards, uids)
-        else:
-            bt.logging.info('Skipping update_scores() as no responses were valid')
+                rewards = torch.FloatTensor(rewards)
+                self.update_scores(rewards, uids)
+            else:
+                bt.logging.info('Skipping update_scores() as no responses were valid')
+        except Exception as e:
+            bt.logging.error(f"Error occurred during forward: {traceback.format_exc()}")
 
     def sync_validator(self):
         self.metadata = Metadata.build(self.metagraph, self.config)
