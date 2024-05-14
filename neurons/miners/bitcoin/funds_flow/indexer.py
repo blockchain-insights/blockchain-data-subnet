@@ -11,12 +11,16 @@ from insights.protocol import NETWORK_BITCOIN
 
 # Global flag to signal shutdown
 shutdown_flag = False
+import neurons.loguru_logger as logu
 logger = setup_logger("Indexer")
 
 
 def shutdown_handler(signum, frame):
     global shutdown_flag
     logger.info(
+        "Shutdown signal received. Waiting for current indexing to complete before shutting down."
+    )
+    logu.logger.info(
         "Shutdown signal received. Waiting for current indexing to complete before shutting down."
     )
     shutdown_flag = True
@@ -45,12 +49,14 @@ def index_block(_bitcoin_node, _graph_indexer, _graph_search, block_height):
                 formatted_tps,
             )
         )
+        logu.logger.info(block=f"{block_height:>6}", processed=f"{formatted_num_transactions}", num_transactions=f"{num_transactions}", seconds_tps=f"{formatted_tps}")
     else:
         logger.info(
             "Block {:>6}: Processed {} transactions in 0.00 seconds (  Inf TPS).".format(
                 block_height, formatted_num_transactions
             )
         )
+        logu.logger.info(block=f"{block_height:>6}", processed=f"{formatted_num_transactions}")
         
     min_block_height_cache, max_block_height_cache = _graph_search.get_min_max_block_height_cache()
     if min_block_height_cache is None:
@@ -66,9 +72,11 @@ def index_block(_bitcoin_node, _graph_indexer, _graph_search, block_height):
 def iterate_range(_bitcoin_node, _graph_indexer, _graph_search, start_height: int, end_height: int, in_reverse_order: bool = False):
     if in_reverse_order and start_height < end_height:
         logger.error("start_height must equal or greater than end_height in reverse indexer")
+        logu.logger.error("start_height must equal or greater than end_height in reverse indexer")
         return False
     if not in_reverse_order and start_height > end_height:
         logger.error("start_height must equal or less than end_height in reverse indexer")
+        logu.logger.error("start_height must equal or less than end_height in reverse indexer")
         return False
     
     global shutdown_flag
@@ -79,6 +87,7 @@ def iterate_range(_bitcoin_node, _graph_indexer, _graph_search, start_height: in
     while (block_height - end_height) * step <= 0 and not shutdown_flag:
         if _graph_indexer.check_if_block_is_indexed(block_height):
             logger.info(f"Skipping block #{block_height}. Already indexed.")
+            logu.logger.info('Skipping block', block_height=f"#{block_height}")
             block_height += step
             continue
         
@@ -88,6 +97,7 @@ def iterate_range(_bitcoin_node, _graph_indexer, _graph_search, start_height: in
             block_height += step
         else:
             logger.error(f"Failed to index block {block_height}.")
+            logu.logger.error('Failed to index block', block_height=f"{block_height}")
             time.sleep(30)
             
     return True
@@ -105,11 +115,13 @@ def move_forward(_bitcoin_node, _graph_indexer, _graph_search, start_height: int
             logger.info(
                 f"Waiting for new blocks. Current height is {current_block_height}."
             )
+            logu.logger.info("Waiting for new blocks", current_block_height=f"{current_block_height}")
             time.sleep(10)
             continue
         
         if _graph_indexer.check_if_block_is_indexed(block_height):
             logger.info(f"Skipping block #{block_height}. Already indexed.")
+            logu.logger.info('Skipping block', block_height=f"{block_height}")
             block_height += 1
             continue
         
@@ -119,6 +131,7 @@ def move_forward(_bitcoin_node, _graph_indexer, _graph_search, start_height: int
             block_height += 1
         else:
             logger.error(f"Failed to index block {block_height}.")
+            logu.logger.info('Failed to index block', block_height=f"{block_height}")
             time.sleep(30)
             
             
@@ -141,17 +154,20 @@ def do_smart_indexing(_bitcoin_node, _graph_indexer, _graph_search, start_height
                 logger.info(
                     f"Waiting for new blocks. Current height is {current_block_height}"
                 )
+                logu.logger.info("Waiting for new blocks", current_block_height=f"{current_block_height}")
                 time.sleep(10)
                 continue
             else: # if has something to index in the reverser indexer, run reverse indexer
                 logger.info(
                     f"Current height is {current_block_height}. Running reverse indexer while waiting for new blocks..."
                 )
+                logu.logger.info('Running reverse indexer while waiting for new blocks', current_block_height=f"{current_block_height}")
                 block_height = backward_block_height
                 is_indexing_reverse = True
         
         while _graph_indexer.check_if_block_is_indexed(block_height): # skip blocks already indexed
             logger.info(f"Skipping block #{block_height}. Already indexed.")
+            logu.logger.info('Skipping block', block_height=f"{block_height}")
             block_height += -1 if is_indexing_reverse else 1
 
         if block_height == 0: # if backward indexer has reached the genesis, just continue
@@ -167,6 +183,7 @@ def do_smart_indexing(_bitcoin_node, _graph_indexer, _graph_search, start_height
                 forward_block_height = block_height + 1
         else:
             logger.error(f"Failed to index block {block_height}.")
+            logu.logger.info('Failed to index block', block_height=f"{block_height}")
             time.sleep(30)
 
 
@@ -188,9 +205,11 @@ if __name__ == "__main__":
     in_reverse_order_str = os.getenv('BITCOIN_INDEXER_IN_REVERSE_ORDER', '0') or '0'
     
     logger.info(in_reverse_order_str)
+    logu.logger.info(in_reverse_order_str=f"{in_reverse_order_str}")
     
     if start_height_str is None:
         logger.info("Please specify BITCOIN_INDEXER_START_BLOCK_HEIGHT")
+        logu.logger.info("Please specify BITCOIN_INDEXER_START_BLOCK_HEIGHT")
     else:
         smart_mode = int(smart_mode_str)
         start_height = int(start_height_str)
@@ -198,14 +217,18 @@ if __name__ == "__main__":
         in_reverse_order = int(in_reverse_order_str)
 
         logger.info("Starting indexer")
+        logu.logger.info("Starting indexer")
         
         logger.info("Creating indexes...")
+        logu.logger.info("Creating indexes...")
         graph_indexer.create_indexes()
         
         logger.info("Syncing block range caches...")
+        logu.logger.info("Syncing block range caches...")
         indexed_min_block_height, indexed_max_block_height = graph_search.get_min_max_block_height()
         graph_indexer.set_min_max_block_height_cache(indexed_min_block_height, indexed_max_block_height)
         logger.info(f"Indexed block height (min, max): [{indexed_min_block_height}, {indexed_max_block_height}]")
+        logu.logger.info('', indexed_block_height=f"[{indexed_min_block_height}, {indexed_max_block_height}]")
 
         if start_height > -1 and smart_mode: # if smart mode, run both forward and reverse indexer
             do_smart_indexing(bitcoin_node, graph_indexer, graph_search, start_height)
@@ -219,3 +242,4 @@ if __name__ == "__main__":
         graph_indexer.close()
         graph_search.close()
         logger.info("Indexer stopped")
+        logu.logger.info("Indexer stopped")

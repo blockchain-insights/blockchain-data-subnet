@@ -2,6 +2,7 @@ import os
 from neurons.setup_logger import setup_logger
 from neo4j import GraphDatabase
 
+import neurons.loguru_logger as logu
 logger = setup_logger("GraphIndexer")
 
 
@@ -165,9 +166,11 @@ class GraphIndexer:
                 if index_name not in existing_index_set:
                     try:
                         logger.info(f"Creating index: {index_name}")
+                        logu.logger.info('creating index', index_name=f"{index_name}")
                         session.run(statement)
                     except Exception as e:
                         logger.error(f"An exception occurred while creating index {index_name}: {e}")
+                        logu.logger.error('An exception occured while creating index', index_name=f"{index_name}", error=f"{error}")
 
     def create_graph_focused_on_money_flow(self, block_data, _bitcoin_node, batch_size=8):
         transactions = block_data.transactions
@@ -241,6 +244,7 @@ class GraphIndexer:
             except Exception as e:
                 transaction.rollback()
                 logger.error(f"An exception occurred: {e}")
+                logu.logger.error('An exception occured', error=f"{e}")
                 return False
 
             finally:

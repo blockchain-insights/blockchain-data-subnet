@@ -19,6 +19,7 @@ from neurons.nodes.factory import NodeFactory
 from neurons.miners.query import get_graph_search, get_graph_indexer, get_balance_search, get_balance_indexer
 from insights.llm import LLMFactory
 
+from neurons.loguru_logger import logger
 
 class Miner(BaseMinerNeuron):
     """
@@ -71,11 +72,13 @@ class Miner(BaseMinerNeuron):
                     dev_config = yaml.safe_load(f.read())
                 config.update(dev_config)
                 bt.logging.info(f"config updated with {dev_config_path}")
+                logger.info('config updated', dev_config_path=f"{dev_config_path}")
 
             else:
                 with open(dev_config_path, 'w') as f:
                     yaml.safe_dump(config, f)
                 bt.logging.info(f"config stored in {dev_config_path}")
+                logger.info('config stored', dev_config_path=f"{dev_config_path}")
 
         return config
     
@@ -89,6 +92,7 @@ class Miner(BaseMinerNeuron):
         self.axon = bt.axon(wallet=self.wallet, port=self.config.axon.port)        
         # Attach determiners which functions are called when servicing a request.
         bt.logging.info(f"Attaching forwards functions to miner axon.")
+        logger.info('Attaching forwards functions to miner axon.')
         self.axon.attach(
             forward_fn=self.discovery,
             blacklist_fn=self.discovery_blacklist,
@@ -112,6 +116,7 @@ class Miner(BaseMinerNeuron):
         )
 
         bt.logging.info(f"Axon created: {self.axon}")
+        logger.info('Axon created', axon=f"{self.axon}")
 
         self.graph_search = get_graph_search(config)
         self.balance_search = get_balance_search(config)
@@ -134,8 +139,10 @@ class Miner(BaseMinerNeuron):
                 balance_model_last_block=balance_model_last_block,
             )
             bt.logging.info(f"Serving miner discovery output: {synapse.output}")
+            logger.info('Serving miner discover output', output=f"{synapse.output}")
         except Exception as e:
             bt.logging.error(traceback.format_exc())
+            logger.error(f"{traceback.format_exc()}")
             synapse.output = None
         return synapse
 
@@ -144,12 +151,14 @@ class Miner(BaseMinerNeuron):
             synapse.output = QueryOutput(result=self.graph_search.execute_query(query=synapse))
         except Exception as e:
             bt.logging.error(traceback.format_exc())
+            logger.error(f"{traceback.format_exc()}")
             synapse.output = QueryOutput(error=e)
         return synapse
 
     async def challenge(self, synapse: protocol.Challenge ) -> protocol.Challenge:
         try:
             bt.logging.info(f"challenge received: {synapse}")
+            logger.info('challenge received', synapse=f"{synapse}")
 
             if self.config.network == NETWORK_BITCOIN:
                 synapse.output = self.graph_search.solve_challenge(
@@ -163,32 +172,39 @@ class Miner(BaseMinerNeuron):
                 )
 
             bt.logging.info(f"Serving miner challenge output: {synapse.output}")
+            logger.info('Serving miner challenge output', output=f"{synapse.output}")
 
         except Exception as e:
             bt.logging.error(traceback.format_exc())
+            logger.error(f"{traceback.format_exc()}")
             synapse.output = None
         return synapse
 
     async def benchmark(self, synapse: protocol.Benchmark) -> protocol.Benchmark:
         try:
             bt.logging.info(f"Executing benchmark query: {synapse.query}")
+            logger.info('Executing benchmark query', query=f"{synapse.query}")
 
             result = self.graph_search.execute_benchmark_query(cypher_query=synapse.query)
             synapse.output = result[0]
 
             bt.logging.info(f"Serving miner benchmark output: {synapse.output}")
+            logger.info('Serving miner benchmark output', output=f"{synapse.output}")
         except Exception as e:
             bt.logging.error(traceback.format_exc())
+            logger.error(f"{traceback.format_exc()}")
         return synapse
 
     async def llm_query(self, synapse: protocol.LlmQuery ) -> protocol.LlmQuery:
         bt.logging.info(f"llm query received: {synapse}")
+        logger.info('llm query received', synapse=f"{synapse}")
         synapse.output = {}
 
         try:
             # TODO: handle llm query
             query = self.llm.build_query_from_messages(synapse.messages)
             bt.logging.info(f"extracted query: {query}")
+            logger.info('extracted query', query=f"{query}")
             
             result = self.graph_search.execute_query(query=query)
             interpreted_result = self.llm.interpret_result(llm_messages=synapse.messages, result=result)
@@ -197,6 +213,7 @@ class Miner(BaseMinerNeuron):
 
         except Exception as e:
             bt.logging.error(traceback.format_exc())
+            logger.error(f"{traceback.format_exc()}")
             error_code = e.args[0]
             if error_code == protocol.LLM_ERROR_TYPE_NOT_SUPPORTED:
                 # handle unsupported query templates
@@ -210,6 +227,7 @@ class Miner(BaseMinerNeuron):
                 synapse.output = QueryOutput(error=error_code, interpreted_result=protocol.LLM_ERROR_MESSAGES[error_code])
 
         bt.logging.info(f"Serving miner llm query output: {synapse.output}")
+        logger.info('Serving miner llm query output', output=f"{synapse.output}")
         return synapse
 
     async def discovery_blacklist(self, synapse: protocol.Discovery) -> typing.Tuple[bool, str]:
@@ -237,6 +255,7 @@ class Miner(BaseMinerNeuron):
         bt.logging.trace(
             f"Prioritizing {synapse.dendrite.hotkey} with value: ", prirority
         )
+        logger.trace('Prioritizing', hotkey=f"{synapse.dendrite.hotkey}", value=f"{prirority}")
         return prirority
     
     async def discovery_priority(self, synapse: protocol.Discovery) -> float:
@@ -273,12 +292,14 @@ def wait_for_blocks_sync():
         config = Miner.get_config()
         if not config.wait_for_sync:
             bt.logging.info(f"Skipping graph sync.")
+            logger.info('Skipping graph sync.')
             return is_synced
         
         miner_config = MinerConfig().load_and_get_config_values()
         
         delta = miner_config.get_blockchain_sync_delta(config.network)
         bt.logging.info(f"Waiting for graph model to sync with blockchain.")
+        logger.info('Waiting for graph model to sync with blockchain')
         while not is_synced:
             try:
                 graph_indexer = get_graph_indexer(config)
@@ -290,13 +311,17 @@ def wait_for_blocks_sync():
                 if delta < 100:
                     is_synced = True
                     bt.logging.success(f"Graph model is synced with blockchain.")
+                    logger.success('Graph model is synced with blockchain')
                 else:
                     bt.logging.info(f"Graph Sync: {current_block_height}/{latest_block_height}")
+                    logger.info('Graph Sync', graph_sync=f"{current_block_height}/{latest_block_height}")
                     time.sleep(bt.__blocktime__ * 12)
             except Exception as e:
                 bt.logging.error(traceback.format_exc())
+                logger.error(f"{traceback.format_exc()}")
                 time.sleep(bt.__blocktime__ * 12)
                 bt.logging.info(f"Failed to connect with graph database. Retrying...")
+                logger.info('Failed to connect with graph database. Retrying...')
                 continue
         return is_synced
 
@@ -310,5 +335,6 @@ if __name__ == "__main__":
     with Miner() as miner:
         while True:
             bt.logging.info(f"Miner running")
+            logger.info('Miner running')
             time.sleep(bt.__blocktime__*2)
 

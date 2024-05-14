@@ -8,6 +8,7 @@ import time
 import random
 
 from collections import deque
+from neurons.loguru_logger import logger
 
 def query_blacklist(self, synapse: protocol.Query) -> typing.Tuple[bool, str]:
         """
@@ -38,12 +39,14 @@ def query_blacklist(self, synapse: protocol.Query) -> typing.Tuple[bool, str]:
             bt.logging.trace(
                 f"Blacklisting hot key {hotkey} because of wrong blockchain"
             )
+            logger.trace('Blacklisting hot key because of wrong blockchain', hotkey=f"{hotkey}")
             return True, "Network not supported."
 
         if not is_query_only(self.miner_config.query_restricted_keywords, synapse.query):
             bt.logging.trace(
                 f"Blacklisting hot key {hotkey} because of illegal cypher keywords"
             )
+            logger.trace('Blacklisting hot key because of illegal cypher keywords', hotkey=f"{hotkey}")
             return True, "Illegal cypher keywords."
         return False, "Hotkey recognized!"
     
@@ -81,6 +84,7 @@ def discovery_blacklist(self, synapse: protocol.Discovery) -> typing.Tuple[bool,
     
     stake = self.metagraph.neurons[uid].stake.tao
     bt.logging.debug(f"Stake of {hotkey}: {stake}")
+    logger.debug('Stake of hotkey', hotkey=f"{hotkey}", stake=f"{stake}")
 
     if stake < self.miner_config.stake_threshold and self.config.mode == 'prod':
         return True, f"Denied due to low stake: {stake}<{self.miner_config.stake_threshold}"
@@ -127,6 +131,7 @@ def base_blacklist(self, synapse: bt.Synapse) -> typing.Tuple[bool, str]:
         bt.logging.trace(
             f"Blacklisting unrecognized hotkey {hotkey}"
         )
+        logger.trace('Blacklisting unrecognized hotkey', hotkey=f"{hotkey}")
         return True, "Unrecognized hotkey"
     if not self.miner_config.is_grace_period and synapse.version != protocol.VERSION:
         return True, f"Blacklisted: Protocol Version differs miner_version={protocol.VERSION} validator_version={synapse.version} for hotkey: {hotkey}"

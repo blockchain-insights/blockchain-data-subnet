@@ -8,6 +8,7 @@ from neurons.miners.bitcoin.balance_tracking.balance_indexer import BalanceIndex
 
 from insights.protocol import NETWORK_BITCOIN
 
+import neurons.loguru_logger as logu
 
 # Global flag to signal shutdown
 shutdown_flag = False
@@ -16,6 +17,9 @@ logger = setup_logger("Indexer")
 def shutdown_handler(signum, frame):
     global shutdown_flag
     logger.info(
+        "Shutdown signal received. Waiting for current indexing to complete before shutting down."
+    )
+    logu.logger.info(
         "Shutdown signal received. Waiting for current indexing to complete before shutting down."
     )
     shutdown_flag = True
@@ -43,12 +47,14 @@ def index_block(_bitcoin_node, _balance_indexer, block_height):
                 formatted_tps,
             )
         )
+        logu.logger.info(block=f"{block_height:>6}", processed=f"{formatted_num_transactions}", num_transactions=f"{num_transactions}", seconds=f"{formatted_tps}")
     else:
         logger.info(
             "Block {:>6}: Processed {} transactions in 0.00 seconds (  Inf TPS).".format(
                 block_height, formatted_num_transactions
             )
         )
+        logu.logger.info(block=f"{block_height:>6}", processed=f"{formatted_num_transactions}")
         
     return success
 
@@ -65,6 +71,7 @@ def move_forward(_bitcoin_node, _balance_indexer, start_block_height = 1):
             logger.info(
                 f"Waiting for new blocks. Current height is {current_block_height}."
             )
+            logu.logger.info('Waiting for new blocks.', current_block_height=f"{current_block_height}")
             time.sleep(10)
             continue
         
@@ -74,6 +81,7 @@ def move_forward(_bitcoin_node, _balance_indexer, start_block_height = 1):
             block_height += 1
         else:
             logger.error(f"Failed to index block {block_height}.")
+            logu.logger.error("Failed to index block", block_height=f"{block_height}")
             time.sleep(30)
 
 # Register the shutdown handler for SIGINT and SIGTERM
@@ -88,12 +96,16 @@ if __name__ == "__main__":
     balance_indexer = BalanceIndexer()
     
     logger.info("Starting indexer")
+    logu.logger.info("Starting indexer")
 
     logger.info("Getting latest block number...")
+    logu.logger.info("Getting latest block number...")
     latest_block_height = balance_indexer.get_latest_block_number()
     logger.info(f"Latest block number is {latest_block_height}")
+    logu.logger.info(latest_block_number=f"{latest_block_height}")
     
     move_forward(bitcoin_node, balance_indexer, latest_block_height + 1)
 
     balance_indexer.close()
     logger.info("Indexer stopped")
+    logu.logger.info("Indexer stopped")
