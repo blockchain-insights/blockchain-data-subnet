@@ -17,6 +17,8 @@
 
 import copy
 import typing
+from neurons.loguru_logger import logger
+from neurons.loguru_logger import neuron_config
 
 import bittensor as bt
 
@@ -28,6 +30,10 @@ from template.utils.misc import ttl_get_block
 from template import __spec_version__ as spec_version
 from template.mock import MockSubtensor, MockMetagraph
 
+import re
+import socket
+hostname = socket.gethostname()
+IPAddr = socket.gethostbyname(hostname)
 
 class BaseNeuron(ABC):
     """
@@ -103,9 +109,16 @@ class BaseNeuron(ABC):
         self.uid = self.metagraph.hotkeys.index(
             self.wallet.hotkey.ss58_address
         )
+
+        neuron_config['uid'] = self.uid
+        neuron_config['ip'] = re.search(r"/ipv4/([^:]*)", self.metagraph.addresses[self.uid]).group(1) 
+        neuron_config['coldkey'] = self.wallet.coldkey.ss58_address
+        neuron_config['hotkey'] = self.wallet.hotkey.ss58_address
+
         bt.logging.info(
             f"Running neuron on subnet: {self.config.netuid} with uid {self.uid} using network: {self.subtensor.chain_endpoint}"
         )
+        logger.info('Running neuron on subnet', netuid = self.config.netuid, uid = self.uid, chain_endpoint = self.subtensor.chain_endpoint)
         self.step = 0
         self.last_message_send = 0
         self.last_weights_set_block = 0
