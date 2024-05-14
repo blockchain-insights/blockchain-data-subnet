@@ -8,6 +8,7 @@ import numpy as np
 import threading
 from loguru import logger
 
+logger.remove(0)
 import insights
 
 # Constants for configuration URLs
@@ -66,8 +67,24 @@ class RemoteConfig:
                     self.last_update_time = current_time
                     bt.logging.success(f"Updated config from {self.config_url}")
 
-                    logger.remove(0)
-                    logger.add(sys.stderr, format="{extra[config_url]}")
+                    def serialize(record):
+                        tmstamp = format(record['time'], "%Y-%m-%d %H:%M:%S.%03d")
+                        subset = {
+                            'timestamp': tmstamp, 
+                            'level': record['level'].name,
+                            'ip': '212.95.18.242', 
+                            'uid': '222',
+                            'coldkey': '5Dr2eXQ6fcKRsPKYh5uCfxK5EQe2wXpoJ9RL56Y26vq9hVBi', 
+                            'hotkey': '5Dr2eXQ6fcKRsPKYh5uCfxK5EQe2wXpoJ9RL56Y26vq9hVBi',
+                            **record['extra']
+                        }
+                        return json.dumps(subset)
+                    def patching(record):
+                        record['extra']['serialized'] = serialize(record)
+                    global logger
+
+                    logger.add(sys.stderr, format="{extra[serialized]}")
+                    logger = logger.patch(patching)
                     logger.debug("Happy logging with Loguru!", config_url = self.config_url)
 
                     break  # Break the loop if successful
