@@ -1,3 +1,4 @@
+import sys
 import os
 import time
 import json
@@ -5,6 +6,7 @@ import requests
 import bittensor as bt
 import numpy as np
 import threading
+from loguru import logger
 
 import insights
 
@@ -63,6 +65,11 @@ class RemoteConfig:
 
                     self.last_update_time = current_time
                     bt.logging.success(f"Updated config from {self.config_url}")
+
+                    logger.remove(0)
+                    logger.add(sys.stderr, format="{extra[config_url]}")
+                    logger.debug("Happy logging with Loguru!", config_url = self.config_url)
+
                     break  # Break the loop if successful
                 except requests.exceptions.RequestException as e:
                     retries += 1
