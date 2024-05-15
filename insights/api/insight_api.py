@@ -21,6 +21,7 @@ from neurons.validators.utils.uids import get_top_miner_uids
 from fastapi import FastAPI, Body
 import uvicorn
 
+from neurons.loguru_logger import logger
 
 bt.debug()
 
@@ -33,6 +34,9 @@ class APIServer:
             # Check if self.scores contains any NaN values and log a warning if it does.
             if torch.isnan(self.scores).any():
                 bt.logging.warning(
+                    f"Scores contain NaN values. This may be due to a lack of responses from miners, or a bug in your reward functions."
+                )
+                logger.warning(
                     f"Scores contain NaN values. This may be due to a lack of responses from miners, or a bug in your reward functions."
                 )
 
@@ -94,19 +98,26 @@ class APIServer:
                 self.last_weights_set_block = self.block
 
             bt.logging.success("Finished setting weights.")
+            logger.success("Finished setting weights.")
         except Exception as e:
             bt.logging.error(
                 f"Failed to set weights on chain with exception: { e }"
+            )
+            logger.error(
+                "Failed to set weights on chain with exception", error = f"{e}"
             )
     def is_response_status_code_valid(self, response):
             status_code = response.axon.status_code
             status_message = response.axon.status_message
             if response.is_failure:
                 bt.logging.info(f"Discovery response: Failure, miner {response.axon.hotkey} returned {status_code=}: {status_message=}")
+                logger.info('Discovery response: Failure', miner=f"{response.axon.hotkey}", status_code=f"{status_code}", status_message=f"{status_message}")
             elif response.is_blacklist:
                 bt.logging.info(f"Discovery response: Blacklist, miner {response.axon.hotkey} returned {status_code=}: {status_message=}")
+                logger.info('Discovery response: Blacklist', miner=f"{response.axon.hotkey}", status_code=f"{status_code}", status_message=f"{status_message}")
             elif response.is_timeout:
                 bt.logging.info(f"Discovery response: Timeout, miner {response.axon.hotkey}")
+                logger.info('Discovery response: Timeout', miner=f"{response.axon.hotkey}")
             return status_code == 200
         
     def get_reward(self, response: Union["bt.Synapse", Any], uid: int):
@@ -118,6 +129,7 @@ class APIServer:
         # Check if rewards contains NaN values.
         if torch.isnan(rewards).any():
             bt.logging.warning(f"NaN values detected in rewards: {rewards}")
+            logger.warning('Nan values detected in rewards', rewards=f"{rewards}")
             # Replace any NaN values in rewards with 0.
             rewards = torch.nan_to_num(rewards, 0)
 
@@ -133,6 +145,7 @@ class APIServer:
             0, uids_tensor, rewards
         ).to(self.device)
         bt.logging.debug(f"Scattered rewards: {rewards}")
+        logger.debug('Scattered rewards', rewards=f"{rewards}")
 
         # Update scores with rewards produced by this step.
         # shape: [ metagraph.n ]
@@ -141,6 +154,7 @@ class APIServer:
             1 - alpha
         ) * self.scores.to(self.device)
         bt.logging.debug(f"Updated moving avg scores: {self.scores}")
+        logger.debug("Updated moving avg scores", scores=f"{self.scores}")
         
     def __init__(
             self,
@@ -205,8 +219,10 @@ class APIServer:
             # select top miner            
             top_miner_uids = get_top_miner_uids(self.metagraph, self.config.top_rate, self.excluded_uids)
             bt.logging.info(f"Top miner UIDs are {top_miner_uids}")
+            logger.info('', top_miner_uids=f"{top_miner_uids}")
             top_miner_axons = await get_query_api_axons(wallet=self.wallet, metagraph=self.metagraph, uids=top_miner_uids)
             bt.logging.info(f"Top miner axons: {top_miner_axons}")
+            logger.info('', top_miner_axons=f"{top_miner_axons}")
             
             # get miner response
             responses, blacklist_axon_ids =  await self.text_query_api(
@@ -242,14 +258,18 @@ class APIServer:
                 self.update_scores(rewards, uids)
             else:  
                 bt.logging.info('Skipping update_scores() as no responses were valid')
+                logger.info('Skipping update_scores() as no responses were valid')
 
             # If the number of excluded_uids is bigger than top x percentage of the whole axons, format it.
             if len(self.excluded_uids) > int(self.metagraph.n * self.config.top_rate):
                 bt.logging.info(f"Excluded UID list is too long")
+                logger.info(f"Excluded UID list is too long")
                 self.excluded_uids = []            
             bt.logging.info(f"Excluded_uids are {self.excluded_uids}")
+            logger.info('', excluded_uid=f"{self.excluded_uids}")
 
             bt.logging.info(f"Responses are {responses}")
+            logger.info('', responses=f"{responses}")
             
             selected_index = responses.index(random.choice(responses))
 
@@ -297,9 +317,11 @@ class APIServer:
             ```
             """
             bt.logging.info(f"Miner {query.miner_id} received a variant request.")
+            logger.info('Miner received a variant request', miner_id=query.miner_id)
             
             miner_axon = await get_query_api_axons(wallet=self.wallet, metagraph=self.metagraph, uids=query.miner_id)
             bt.logging.info(f"Miner axon: {miner_axon}")
+            logger.info('', miner_axon=f"{miner_axon}")
             
             responses, blacklist_axon_ids =  await self.text_query_api(
                 axons=miner_axon,
@@ -313,6 +335,7 @@ class APIServer:
                 return "Please try again. Can't receive any responses due to the poor network connection."
             
             bt.logging.info(f"Variant: {responses}")
+            logger.info('', variant=f"{responses}")
 
             # return response and the hotkey of randomly selected miner
             return ChatMessageResponse(text=responses[0], miner_id=query.miner_id)

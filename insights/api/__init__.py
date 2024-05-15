@@ -22,6 +22,8 @@ import bittensor as bt
 from abc import ABC, abstractmethod
 from typing import Any, List, Union, Optional
 
+from neurons.loguru_logger import logger
+
 
 class SubnetsAPI(ABC):
     def __init__(self, wallet: "bt.wallet"):
@@ -70,6 +72,7 @@ class SubnetsAPI(ABC):
         """
         synapse = self.prepare_synapse(**kwargs)
         bt.logging.debug(f"Quering valdidator axons with synapse {synapse.name}...")
+        logger.debug('Quering validator axons with synapse', synapse_name=f"{synapse.name}")
         responses = await self.dendrite(
             axons=axons,
             synapse=synapse,

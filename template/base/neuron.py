@@ -77,12 +77,13 @@ class BaseNeuron(ABC):
         # If a gpu is required, set the device to cuda:N (e.g. cuda:0)
         self.device = self.config.neuron.device
 
-        # Log the configuration for reference.
+        # Log the configuration for reference.-
         bt.logging.info(self.config)
 
         # Build Bittensor objects
         # These are core Bittensor classes to interact with the network.
         bt.logging.info("Setting up bittensor objects.")
+        logger.info("Setting up bittensor objects.")
 
         # The wallet holds the cryptographic key pairs for the miner.
         if self.config.mock:
@@ -99,8 +100,11 @@ class BaseNeuron(ABC):
             self.metagraph = self.subtensor.metagraph(self.config.netuid)
 
         bt.logging.info(f"Wallet: {self.wallet}")
+        logger.info('', wallet=f"{self.wallet}")
         bt.logging.info(f"Subtensor: {self.subtensor}")
+        logger.info('', subtensor=f"{self.subtensor}")
         bt.logging.info(f"Metagraph: {self.metagraph}")
+        logger.info('', metagraph=f"{self.metagraph}")
         
         # Check if the miner is registered on the Bittensor network before proceeding further.
         self.check_registered()
@@ -159,6 +163,8 @@ class BaseNeuron(ABC):
                 f"Wallet: {self.wallet} is not registered on netuid {self.config.netuid}."
                 f" Please register the hotkey using `btcli subnets register` before trying again"
             )
+            logger.error('Wallet is not registered on netuid', wallet=f"{self.wallet}", netuid=f"{self.config.netuid}")
+            logger.error(" Please register the hotkey using `btcli subnets register` before trying again")
             exit()
 
     def should_sync_metagraph(self):
@@ -195,5 +201,8 @@ class BaseNeuron(ABC):
 
     def load_state(self):
         bt.logging.warning(
+            "load_state() not implemented for this neuron. You can implement this function to load model checkpoints or other useful data."
+        )
+        logger.warning(
             "load_state() not implemented for this neuron. You can implement this function to load model checkpoints or other useful data."
         )

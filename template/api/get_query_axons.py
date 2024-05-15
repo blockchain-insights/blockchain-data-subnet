@@ -21,6 +21,7 @@ import torch
 import random
 import bittensor as bt
 
+from neurons.loguru_logger import logger
 
 async def ping_uids(dendrite, metagraph, uids, timeout=3):
     """
@@ -57,10 +58,13 @@ async def ping_uids(dendrite, metagraph, uids, timeout=3):
         ]
     except Exception as e:
         bt.logging.error(f"Dendrite ping failed: {e}")
+        logger.error('Dendrite ping failed', error=f"{e}")
         successful_uids = []
         failed_uids = uids
     bt.logging.debug("ping() successful uids:", successful_uids)
+    logger.debug("ping() successful uids:", successful_uids=f"{successful_uids}")
     bt.logging.debug("ping() failed uids    :", failed_uids)
+    logger.debug("ping() failed uids    :", failed_uids=f"{failed_uids}")
     return successful_uids, failed_uids
 
 
@@ -80,6 +84,7 @@ async def get_query_api_nodes(dendrite, metagraph, n=0.1, timeout=3):
     bt.logging.debug(
         f"Fetching available API nodes for subnet {metagraph.netuid}"
     )
+    logger.debug('Fetching available API nodes for subnet', netuid=f"{metagraph.netuid}")
     vtrust_uids = [
         uid.item()
         for uid in metagraph.uids
@@ -94,6 +99,7 @@ async def get_query_api_nodes(dendrite, metagraph, n=0.1, timeout=3):
     bt.logging.debug(
         f"Available API node UIDs for subnet {metagraph.netuid}: {query_uids}"
     )
+    logger.debug('Available APi node UIDs for subnet', netuid=f"{metagraph.netuid}", query_uids=f"{query_uids}")
     if len(query_uids) > 3:
         query_uids = random.sample(query_uids, 3)
     return query_uids

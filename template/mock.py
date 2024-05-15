@@ -6,6 +6,7 @@ import bittensor as bt
 
 from typing import List
 
+from neurons.loguru_logger import logger
 
 class MockSubtensor(bt.MockSubtensor):
     def __init__(self, netuid, n=16, wallet=None, network="mock"):
@@ -48,7 +49,9 @@ class MockMetagraph(bt.metagraph):
             axon.port = 8091
 
         bt.logging.info(f"Metagraph: {self}")
+        logger.info('', metagraph=f"{self}")
         bt.logging.info(f"Axons: {self.axons}")
+        logger.info('', axons=f"{self.axons}")
 
 
 class MockDendrite(bt.dendrite):

@@ -7,7 +7,7 @@ logger.remove(0)
 
 def serialize(record):
     if(neuron_config.get('uid') == None):
-        return '-------------------------error------------------------'
+        return ''
     tmstamp = format(record['time'], "%Y-%m-%d %H:%M:%S.%03d")
     subset = {
         'timestamp': tmstamp, 
