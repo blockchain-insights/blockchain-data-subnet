@@ -1,6 +1,8 @@
 import bittensor as bt
 from neurons.remote_config import ValidatorConfig
 
+from neurons.loguru_logger import logger
+
 class Scorer:
     def __init__(self, config: ValidatorConfig):
         self.config = config
@@ -15,6 +17,7 @@ class Scorer:
                 f'Uptime avg: {uptime_avg:.4f} |')
 
         bt.logging.info(log)
+        logger.info(log)
         process_time_score = self.calculate_process_time_score(process_time, self.config.benchmark_timeout)
         block_height_score = self.calculate_block_height_score(network, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height)
         block_height_recency_score = self.calculate_block_height_recency_score(indexed_end_block_height, blockchain_last_block_height, worst_end_block_height)
@@ -30,6 +33,7 @@ class Scorer:
                 f'Uptime score: {uptime_score:.4f} |' \
                 f'Final score: {final_score:.4f} |')
         bt.logging.info(log)
+        logger.info(log)
         return final_score
 
     def final_score(self, process_time_score, block_height_score, block_height_recency_score, blockchain_score, uptime_score):

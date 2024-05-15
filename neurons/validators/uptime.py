@@ -6,6 +6,8 @@ from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinl
 from datetime import datetime, timedelta
 import bittensor as bt
 
+from neurons.loguru_logger import logger
+
 Base = declarative_base()
 
 class Miners(Base):
@@ -62,6 +64,7 @@ class MinerUptimeManager:
                         last_downtime.end_time = datetime.utcnow()
         except Exception as e:
             bt.logging.error(f"Error occurred during uptime end for {hotkey} {traceback.format_exc()}")
+            logger.error('Error occurred during uptime end', hotkey=f"{hotkey}", error=f"{traceback.format_exc()}")
 
     def down(self, uid, hotkey):
         try:
@@ -77,6 +80,7 @@ class MinerUptimeManager:
                         session.add(new_downtime)
         except Exception as e:
             bt.logging.error(f"Error occurred during downtime start for {hotkey} {traceback.format_exc()}")
+            logger.error('Error occurred during downtime start', hotkey=f"{hotkey}", error=f"{traceback.format_exc()}")
 
     def get_miner(self, hotkey):
         try:
@@ -88,6 +92,7 @@ class MinerUptimeManager:
                 return None
         except Exception as e:
             bt.logging.error(f"Error occurred during miner retrieval for {hotkey} {traceback.format_exc()}")
+            logger.error('Error occurred during miner retrieval', hotkey=f"{hotkey}", error=f"{traceback.format_exc()}")
             return None
 
     def calculate_uptimes(self, hotkey, period_seconds):
@@ -123,6 +128,7 @@ class MinerUptimeManager:
 
         except Exception as e:
             bt.logging.error(f"Error occurred during uptime calculation for {miner.hotkey}: {traceback.format_exc()}")
+            logger.error('Error occurred during uptime calculation', hotkey=f"{hotkey}", error=f"{traceback.format_exc()}")
             raise e
 
     def get_uptime_scores(self, hotkey):

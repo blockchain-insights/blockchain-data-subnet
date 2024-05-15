@@ -15,6 +15,7 @@ from neurons.setup_logger import setup_logger
 parser = argparse.ArgumentParser()
 bt.logging.add_args(parser)
 logger = setup_logger("EvmNode")
+import neurons.loguru_logger as logu
  
 class EthereumNode(Node):
     def __init__(self, node_rpc_url: str = None):
@@ -37,8 +38,10 @@ class EthereumNode(Node):
                 return self.web3.eth.block_number
             else:
                 logger.info("RPC Provider disconnected.")
+                logu.logger.info("RPC Provider disconnected.")
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            logu.logger.error(f"RPC Provider with Error", error=f"{e}")
     
     def get_block_by_height(self, block_height):
         try:
@@ -46,8 +49,10 @@ class EthereumNode(Node):
                 return self.web3.eth.get_block(block_height)
             else:
                 logger.info("RPC Provider disconnected.")
+                logu.logger.info("RPC Provider disconnected.")
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            logu.logger.error(f"RPC Provider with Error", error=f"{e}")
 
     def get_transaction_by_hash(self, tx_hash): # get the transaction details from tx hash
         try:
@@ -55,8 +60,10 @@ class EthereumNode(Node):
                 return self.web3.eth.get_transaction(tx_hash)
             else:
                 logger.info(f("RPC Provider disconnected."))
+                logu.logger.info("RPC Provider disconnected.")
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            logu.logger.error(f"RPC Provider with Error", error=f"{e}")
     
     def get_symbol_name(self, contractAddress):
         jsonAbi = [{"constant":True,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":False,"stateMutability":"view","type":"function"}]
@@ -66,6 +73,7 @@ class EthereumNode(Node):
                 return contract.functions.symbol().call()
             else:
                 logger.info(f("RPC Provider disconnected."))
+                logu.logger.info("RPC Provider disconnected.")
         except:
             return contractAddress
     
@@ -85,6 +93,7 @@ class EthereumNode(Node):
             return responses
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            logu.logger.info("RPC Provider disconnected.", error=f"{e}")
 
     # get tx details from tx hash
     def get_transaction(self, transactions):
@@ -102,6 +111,7 @@ class EthereumNode(Node):
             return responses
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            logu.logger.info("RPC Provider with Error.", error=f"{e}")
 
     # get txReceipt details from tx hash
     def get_transactionReceipt(self, transactions):
@@ -119,6 +129,7 @@ class EthereumNode(Node):
             return responses
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            logu.logger.error(f"RPC Provider with Error", error=f"{e}")
 
     def create_challenge(self, start_block_height, last_block_height):
         block_to_check = random.randint(start_block_height, last_block_height)
