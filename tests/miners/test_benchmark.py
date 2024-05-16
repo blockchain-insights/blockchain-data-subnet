@@ -3,7 +3,7 @@ import json
 import re
 import unittest
 
-def build_query(network, start_block, end_block, diff=5000):
+def build_query(network, start_block, end_block, diff=1):
     import random
     total_blocks = end_block - start_block
     part_size = total_blocks // 8
@@ -24,9 +24,13 @@ def build_query(network, start_block, end_block, diff=5000):
     final_query = f"""
     WITH {combined_ranges} AS block_heights
     UNWIND block_heights AS block_height
-    MATCH (p:Transaction)
-    WHERE p.block_height = block_height
-    RETURN SUM(p.in_total_amount) AS total_in_amount
+    MATCH p=(sender:Address)-[sent1:SENT]->(t:Transaction)-[sent2:SENT]->(receiver:Address)
+    WHERE t.block_height = block_height
+    WITH project(p) AS subgraph
+    CALL pagerank.get(subgraph) YIELD node, rank
+    RETURN round(rank * 1000000) / 1000000 AS roundedRank 
+    ORDER BY roundedRank DESC
+    LIMIT 1
     """
     query = final_query.strip()
     return query
@@ -34,8 +38,7 @@ def build_query(network, start_block, end_block, diff=5000):
 class BenchmarkQueryRegex(unittest.TestCase):
 
     def test_something(self):
-        # build_query(network, start_block, end_block, diff=5000)
-        function_code = inspect.getsource(build_query) + "\nquery = build_query(network, start_block, end_block)"
+        function_code = inspect.getsource(build_query) + "\nquery = build_query(network, start_block, end_block, 1)"
         with open('query_script.json', 'w') as file:
             json.dump({"code": function_code}, file)
 
@@ -44,19 +47,19 @@ class BenchmarkQueryRegex(unittest.TestCase):
             data = json.load(file)
             query_script = data['code']
 
-        query = build_query('bitcoin', 1, 835000, 5000)
+        query = build_query('bitcoin', 1, 835000, 1)
         benchmark_query_script_vars = {
             'network': 'bitcoin',
             'start_block': 1,
             'end_block': 835000,
-            'diff': 5000,
+            'diff': 1,
         }
 
         exec(query_script, benchmark_query_script_vars)
         generated_query = benchmark_query_script_vars['query']
         print(generated_query)
 
-        pattern = r"WITH\s+(?:range\((\d+),\s*(\d+)\)\s*\+\s*)+range\((\d+),\s*(\d+)\)\s+AS\s+block_heights\s+UNWIND\s+block_heights\s+AS\s+block_height\s+MATCH\s+\(p:Transaction\)\s+WHERE\s+p.block_height\s+=\s+block_height\s+RETURN\s+SUM\(p\.(\w+)\)\s+AS\s+total_in_amount"
+        pattern = "WITH\s+(?:range\(\d+,\s*\d+\)\s*\+\s*)+range\(\d+,\s*\d+\)\s+AS\s+block_heights\s+UNWIND\s+block_heights\s+AS\s+block_height\s+MATCH\s+p=\((sender:Address)\)-\[(sent1:SENT)\]->\((t:Transaction)\)-\[(sent2:SENT)\]->\((receiver:Address)\)\s+WHERE\s+t\.block_height\s+=\s+block_height\s+WITH\s+project\(p\)\s+AS\s+subgraph\s+CALL\s+pagerank\.get\(subgraph\)\s+YIELD\s+node,\s+rank\s+RETURN\s+round\(rank\s*\*\s*1000000\)\s*/\s*1000000\s+AS\s+roundedRank\s+ORDER\s+BY\s+roundedRank\s+DESC\s+LIMIT\s+1"
         print(pattern)
 
         with open('query_script_regex.json', 'w') as file:

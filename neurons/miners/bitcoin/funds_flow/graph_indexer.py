@@ -86,6 +86,18 @@ class GraphIndexer:
             single_result = result.single()
             return single_result is not None
 
+    def find_indexed_cache_height_ranges(self):
+        with self.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (c:Cache)
+                RETURN c.value as height
+                """,
+            )
+
+            caches = [(record["height"]) for record in result]
+            return caches
+
     def find_indexed_block_height_ranges(self):
         with self.driver.session() as session:
             result = session.run(
