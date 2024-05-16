@@ -13,6 +13,7 @@ UPDATE_INTERVAL = 3600  # Time interval for updating configuration in seconds
 MAX_RETRIES = 10
 RETRY_INTERVAL = 5
 
+from neurons.loguru_logger import logger
 
 class RemoteConfig:
     _instances = {}
@@ -62,14 +63,17 @@ class RemoteConfig:
 
                     self.last_update_time = current_time
                     bt.logging.success(f"Updated config from {self.config_url}")
+                    logger.success('Updated config', config_url=f"{self.config_url}")
                     break  # Break the loop if successful
                 except requests.exceptions.RequestException as e:
                     retries += 1
                     bt.logging.error(f"Attempt {retries} failed to update config from {self.config_url}: {e}")
+                    logger.error('Attempt retries failed to update config', retries=f"{retries}", config_url=f"{self.config_url}", error=f"{e}")
                     if retries < MAX_RETRIES:
                         time.sleep(RETRY_INTERVAL)
                 except Exception as e:
                     bt.logging.error(f"Non-retryable error occurred: {e}")
+                    logger.error(f"Non-retryable error occurred", error=f"{e}")
                     break
 
     def get_config_composite_value(self, key, default=None):

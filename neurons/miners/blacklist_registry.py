@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import datetime
 import bittensor as bt
-
+from neurons.loguru_logger import logger
 Base = declarative_base()
 
 class BlacklistRegistry(Base):
@@ -29,6 +29,7 @@ class BlacklistRegistryManager:
             return session.query(BlacklistRegistry).all()
         except Exception as e:
             bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            logger.error('Error occurred', error=f"{traceback.format_exc()}")
         finally:
             session.close()
 
@@ -40,6 +41,7 @@ class BlacklistRegistryManager:
         except Exception as e:
             session.rollback()
             bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            logger.error('Error occurred', error=f"{traceback.format_exc()}")
         finally:
             session.close()
 
@@ -57,5 +59,6 @@ class BlacklistRegistryManager:
         except Exception as e:
             session.rollback()
             bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            logger.error('Error occurred', error=f"{traceback.format_exc()}")
         finally:
             session.close()

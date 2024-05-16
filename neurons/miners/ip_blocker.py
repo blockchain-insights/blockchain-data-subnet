@@ -7,6 +7,7 @@ import bittensor as bt
 import requests
 
 from neurons.miners.blacklist_registry import BlacklistRegistryManager
+from neurons.loguru_logger import logger
 
 SLEEP_TIME = 60
 
@@ -16,10 +17,12 @@ def get_external_ip():
         return response.text
     except requests.RequestException:
         bt.logging.error("Failed to get external IP address.")
+        logger.error("Failed to get external IP address.")
         return None
 
 def main():
     bt.logging.info(f"Running ip blocker")
+    logger.info(f"Running ip blocker")
 
     my_ip = get_external_ip()
 
@@ -30,6 +33,7 @@ def main():
             for entry in blacklist_registry:
                 if entry.ip_address == my_ip:
                     bt.logging.warning(f"⚠️ Skipping blocking of own IP address: {entry.ip_address}")
+                    logger.warning(f"⚠️ Skipping blocking of own IP address", ip_address=f"{entry.ip_address}")
                     continue
 
                 # add to iptables, but only missing entries
@@ -37,24 +41,31 @@ def main():
                 if entry.ip_address not in result.stdout:
                     subprocess.run(["iptables", "-I", "DOCKER", "1", "-s", entry.ip_address, "-j", "DROP"], check=True)
                     bt.logging.info(f"🚫💻 Blocked {entry.ip_address} for {entry.hot_key}")
+                    logger.info(f"🚫💻 Blocked IP address for hotkey", ip_address=f"{entry.ip_address}", blocked_hotkey=f"{entry.hot_key}")
                     needs_refresh = True
                 else:
                     bt.logging.info(f"ℹ️ IP {entry.ip_address} already blocked")
+                    logger.info(f"ℹ️ IP already blocked", ip_address=f"{entry.ip_address}")
 
             if needs_refresh:
                 subprocess.run(["iptables-save"], check=True)
                 bt.logging.success(f"Refreshed ip tables")
+                logger.success(f"Refreshed ip tables")
             else:
                 bt.logging.info(f"✅ No new blacklisted ips found")
+                logger.info(f"✅ No new blacklisted ips found")
 
             bt.logging.info(f"Sleeping for {SLEEP_TIME} seconds")
+            logger.info(f"Sleeping", seconds=f"{SLEEP_TIME}")
             time.sleep(SLEEP_TIME)
 
         except KeyboardInterrupt:
             bt.logging.info("Ip blocker killed by keyboard interrupt.")
+            logger.info("Ip blocker killed by keyboard interrupt.")
             break
         except Exception as e:
             bt.logging.error(traceback.format_exc())
+            logger.error(traceback.format_exc())
             continue
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from random import randint
 import bittensor as bt
 from insights import protocol
 
+from neurons.loguru_logger import logger
 
 class BenchmarkValidator:
     def __init__(self, dendrite, validator_config):
@@ -13,10 +14,12 @@ class BenchmarkValidator:
     def run_benchmarks(self, filtered_responses):
         try:
             bt.logging.info(f"Starting benchmarking for {len(filtered_responses)} filtered responses.")
+            logger.info('Starting benchmarking for filtered responses.', number_of_filtered_responses=f"{len(filtered_responses)}")
             response_processor = ResponseProcessor(self.validator_config)
 
             grouped_responses = response_processor.group_responses(filtered_responses)
             bt.logging.info(f"Grouped responses into {len(grouped_responses)} groups.")
+            logger.info('Grouped responses into groups', number_of_grouped_responses=f"{len(grouped_responses)}")
             results = {}
 
             for network, main_group in grouped_responses.items():
@@ -41,14 +44,17 @@ class BenchmarkValidator:
                                 results[uid_value] = (response_time, result == most_common_result)
                         except Exception as e:
                             bt.logging.error(f"Error occurred during benchmarking: {traceback.format_exc()}")
+                            logger.error("Error occurred during benchmarking", error=f"{traceback.format_exc()}")
 
             return results
         except Exception as e:
             bt.logging.error(f"Error occurred during benchmarking: {traceback.format_exc()}")
+            logger.error("Error occurred during benchmarking", error=f"{traceback.format_exc()}")
             return {}
 
     def execute_benchmarks(self, responses, benchmark_query):
         bt.logging.info(f"Executing {benchmark_query=} query for {len(responses)} responses.")
+        logger.info('Executing query for responses.', benchmark_query=f"{benchmark_query}", number_of_responses=f"{len(responses)}")
         results = []
         for response, uid in responses:
             result = self.run_benchmark(response, uid, benchmark_query)
@@ -56,6 +62,7 @@ class BenchmarkValidator:
 
         filtered_run_results = [result for result in results if result[2] is not None]
         bt.logging.info(f"Filtered {len(filtered_run_results)} valid benchmark results.")
+        logger.info('Filtered valid benchmark results.', number_of_filtered_run_results=f"{len(filtered_run_results)}")
         return filtered_run_results
 
     def run_benchmark(self, response, uid, benchmark_query="RETURN 1"):
@@ -71,13 +78,16 @@ class BenchmarkValidator:
 
             if benchmark_response is None or benchmark_response.output is None:
                 bt.logging.debug(f"Benchmark data retrieval failed for {response.axon.hotkey}")
+                logger.debug('Benchmark data retrieval failed', axon_hotey=f"{response.axon.hotkey}")
                 return None, None, None
 
             response_time = benchmark_response.dendrite.process_time
             bt.logging.info(f"Benchmark data received for {response.axon.hotkey} with response time {response_time}, output: {benchmark_response.output}, uid: {uid_value}")
+            logger.info('Benchmark data received for axon hotkey.', miner_hotkey=f"{response.axon.hotkey}", response_time=f"{response_time}", output=f"{benchmark_response.output}", axon_uid=f"{uid_value}")
             return uid_value, response_time, benchmark_response.output
         except Exception as e:
             bt.logging.error(f"Error occurred during benchmarking {response.axon.hotkey}: {traceback.format_exc()}")
+            logger.error("Error occurred during benchmarking", miner_hotkey=f"{response.axon.hotkey}", error=f"{traceback.format_exc()}")
             return None, None, None
 
 class ResponseProcessor:
@@ -115,5 +125,6 @@ class ResponseProcessor:
                 }
 
                 bt.logging.info(f"Network {network}, Chunk {i}: Contains Responses {[(resp.axon.ip, resp.axon.hotkey) for resp, _ in items[i]]}")
+                logger.info('Responses', network=f"{network}", chunk=f"{i}", responses=f"{[(resp.axon.ip, resp.axon.hotkey) for resp, _ in items[i]]}")
 
         return new_groups
