@@ -333,7 +333,7 @@ class Validator(BaseValidatorNeuron):
             return score
         except Exception as e:
             bt.logging.error(f"Error occurred during cross-validation: {traceback.format_exc()}")
-            logger.error("Error occurred during cross-validation", error={traceback.format_exc()})
+            logger.error("Error occurred during cross-validation", error=f"{traceback.format_exc()}")
             return None
 
     async def forward(self):

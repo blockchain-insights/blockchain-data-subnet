@@ -49,14 +49,14 @@ def index_block(_bitcoin_node, _graph_indexer, _graph_search, block_height):
                 formatted_tps,
             )
         )
-        logu.logger.info(block=f"{block_height:>6}", processed=f"{formatted_num_transactions}", num_transactions=f"{num_transactions}", seconds_tps=f"{formatted_tps}")
+        logu.logger.info('', block=f"{block_height:>6}", processed=f"{formatted_num_transactions}", num_transactions=f"{num_transactions}", seconds_tps=f"{formatted_tps}")
     else:
         logger.info(
             "Block {:>6}: Processed {} transactions in 0.00 seconds (  Inf TPS).".format(
                 block_height, formatted_num_transactions
             )
         )
-        logu.logger.info(block=f"{block_height:>6}", processed=f"{formatted_num_transactions}")
+        logu.logger.info('', block=f"{block_height:>6}", processed=f"{formatted_num_transactions}")
         
     min_block_height_cache, max_block_height_cache = _graph_search.get_min_max_block_height_cache()
     if min_block_height_cache is None:
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     in_reverse_order_str = os.getenv('BITCOIN_INDEXER_IN_REVERSE_ORDER', '0') or '0'
     
     logger.info(in_reverse_order_str)
-    logu.logger.info(in_reverse_order_str=f"{in_reverse_order_str}")
+    logu.logger.info('', in_reverse_order_str=f"{in_reverse_order_str}")
     
     if start_height_str is None:
         logger.info("Please specify BITCOIN_INDEXER_START_BLOCK_HEIGHT")
