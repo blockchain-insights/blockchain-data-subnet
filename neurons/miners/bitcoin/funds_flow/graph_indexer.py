@@ -3,7 +3,7 @@ from neurons.setup_logger import setup_logger
 from neo4j import GraphDatabase
 
 logger = setup_logger("GraphIndexer")
-
+from neurons.loguru_logger import logger as loguru_logger
 
 class GraphIndexer:
     def __init__(
@@ -177,9 +177,11 @@ class GraphIndexer:
                 if index_name not in existing_index_set:
                     try:
                         logger.info(f"Creating index: {index_name}")
+                        loguru_logger.info('Creating index', index_name=f"{index_name}")
                         session.run(statement)
                     except Exception as e:
                         logger.error(f"An exception occurred while creating index {index_name}: {e}")
+                        loguru_logger.info('An exception occurred while creating index', index_name=f"{index_name}", error=f"{e}")
 
     def create_graph_focused_on_money_flow(self, in_memory_graph, _bitcoin_node, batch_size=8):
         block_node = in_memory_graph["block"]
@@ -254,6 +256,7 @@ class GraphIndexer:
             except Exception as e:
                 transaction.rollback()
                 logger.error(f"An exception occurred: {e}")
+                loguru_logger.error('An exception occurred', error=f"{e}")
                 return False
 
             finally:

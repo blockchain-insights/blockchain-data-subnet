@@ -26,6 +26,8 @@ import random
 parser = argparse.ArgumentParser()
 bt.logging.add_args(parser)
 logger = setup_logger("BitcoinNode")
+
+from neurons.loguru_logger import logger as loguru_logger
  
 class BitcoinNode(Node):
     def __init__(self, node_rpc_url: str = None):
@@ -49,6 +51,7 @@ class BitcoinNode(Node):
 
     def load_tx_out_hash_table(self, pickle_path: str, reset: bool = False):
         logger.info(f"Loading tx_out hash table: {pickle_path}")
+        loguru_logger.info('Loading tx_out hash table', pickle_path=f"{pickle_path}")
         with open(pickle_path, 'rb') as file:
             start_time = time.time()
             hash_table = pickle.load(file)
@@ -60,6 +63,7 @@ class BitcoinNode(Node):
                     self.tx_out_hash_table[sub_key].update(hash_table[sub_key])
             end_time = time.time()
             logger.info(f"Successfully loaded tx_out hash table: {pickle_path} in {end_time - start_time} seconds")
+            loguru_logger.info('successfully loaded tx_out hash table', pickle_path=f"{pickle_path}", time=f"{end_time - start_time}")
 
     def get_current_block_height(self):
         rpc_connection = AuthServiceProxy(self.node_rpc_url)
@@ -67,6 +71,7 @@ class BitcoinNode(Node):
             return rpc_connection.getblockcount()
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            loguru_logger.error("RPC Provider with Error", error=f"{e}")
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
      
@@ -78,11 +83,13 @@ class BitcoinNode(Node):
             return rpc_connection.getblock(block_hash, 2)
         except Exception as e:
             logger.error(f"RPC Provider with Error: {e}")
+            loguru_logger.error("RPC Provider with Error", error=f"{e}")
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
 
     def get_transaction_by_hash(self, tx_hash):
         logger.error(f"get_transaction_by_hash not implemented for BitcoinNode")
+        loguru_logger.error(f"get_transaction_by_hash not implemented for BitcoinNode")
         raise NotImplementedError()
     
     def get_address_and_amount_by_txn_id_and_vout_id(self, txn_id: str, vout_id: str):

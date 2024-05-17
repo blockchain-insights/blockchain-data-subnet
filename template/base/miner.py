@@ -27,6 +27,7 @@ import bittensor as bt
 from template.base.neuron import BaseNeuron
 from template.utils.config import add_miner_args
 
+from neurons.loguru_logger import logger
 
 class BaseMinerNeuron(BaseNeuron):
     """
@@ -48,10 +49,12 @@ class BaseMinerNeuron(BaseNeuron):
             bt.logging.warning(
                 "You are allowing non-validators to send requests to your miner. This is a security risk."
             )
+            logger.warning('You are allowing non-validators to send requests to your miner. This is a security risk.')
         if self.config.blacklist.allow_non_registered:
             bt.logging.warning(
                 "You are allowing non-registered entities to send requests to your miner. This is a security risk."
             )
+            logger.warning("You are allowing non-registered entities to send requests to your miner. This is a security risk.")
 
         # Instantiate runners
         self.should_exit: bool = False
@@ -91,12 +94,14 @@ class BaseMinerNeuron(BaseNeuron):
         bt.logging.info(
             f"Serving miner axon {self.axon} on network: {self.config.subtensor.chain_endpoint} with netuid: {self.config.netuid}"
         )
+        logger.info('Serving miner axon on network', axon=f"{self.axon}", network=f"{self.config.subtensor.chain_endpoint}", netuid=f"{self.config.netuid}")
         self.axon.serve(netuid=self.config.netuid, subtensor=self.subtensor)
 
         # Start  starts the miner's axon, making it active on the network.
         self.axon.start()
 
         bt.logging.info(f"Miner starting at block: {self.block}")
+        logger.info('Miner starting at block', block=f"{self.block}")
 
         # This loop maintains the miner's operations until intentionally stopped.
         try:
@@ -120,11 +125,13 @@ class BaseMinerNeuron(BaseNeuron):
         except KeyboardInterrupt:
             self.axon.stop()
             bt.logging.success("Miner killed by keyboard interrupt.")
+            logger.success("Miner killed by keyboard interrupt.")
             exit()
 
         # In case of unforeseen errors, the miner will log the error and continue operations.
         except Exception as e:
             bt.logging.error(traceback.format_exc())
+            logger.error('Error', error=f"{traceback.format_exc()}")
 
     def run_in_background_thread(self):
         """
@@ -133,11 +140,13 @@ class BaseMinerNeuron(BaseNeuron):
         """
         if not self.is_running:
             bt.logging.debug("Starting miner in background thread.")
+            logger.debug("Starting miner in background thread.")
             self.should_exit = False
             self.thread = threading.Thread(target=self.run, daemon=True)
             self.thread.start()
             self.is_running = True
             bt.logging.debug("Started")
+            logger.debug("Started")
 
     def stop_run_thread(self):
         """
@@ -145,10 +154,12 @@ class BaseMinerNeuron(BaseNeuron):
         """
         if self.is_running:
             bt.logging.debug("Stopping miner in background thread.")
+            logger.debug("Stopping miner in background thread.")
             self.should_exit = True
             self.thread.join(5)
             self.is_running = False
             bt.logging.debug("Stopped")
+            logger.debug("Stopped")
 
     def __enter__(self):
         """
@@ -179,11 +190,13 @@ class BaseMinerNeuron(BaseNeuron):
     def resync_metagraph(self):
         """Resyncs the metagraph and updates the hotkeys and moving averages based on the new metagraph."""
         bt.logging.info("resync_metagraph()")
+        logger.info("resync_metagraph()")
 
         # Sync the metagraph.
         self.metagraph.sync(subtensor=self.subtensor)
         self.last_sync_block = self.block
         bt.logging.info("resync_metagraph() done")
+        logger.info("resync_metagraph() done")
 
     async def forward(self, synapse: bt.Synapse) -> bt.Synapse:
         raise NotImplementedError()

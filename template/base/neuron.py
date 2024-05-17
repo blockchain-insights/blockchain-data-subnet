@@ -28,6 +28,13 @@ from template.utils.misc import ttl_get_block
 from template import __spec_version__ as spec_version
 from template.mock import MockSubtensor, MockMetagraph
 
+from neurons.loguru_logger import logger
+from neurons.loguru_logger import neuron_config
+
+import re
+import socket
+hostname = socket.gethostname()
+IPAddr = socket.gethostbyname(hostname)
 
 class BaseNeuron(ABC):
     """
@@ -73,10 +80,12 @@ class BaseNeuron(ABC):
 
         # Log the configuration for reference.
         bt.logging.info(self.config)
+        logger.info('Config', config=f"{self.config}")
 
         # Build Bittensor objects
         # These are core Bittensor classes to interact with the network.
         bt.logging.info("Setting up bittensor objects.")
+        logger.info("Setting up bittensor objects.")
 
         # The wallet holds the cryptographic key pairs for the miner.
         if self.config.mock:
@@ -93,8 +102,11 @@ class BaseNeuron(ABC):
             self.metagraph = self.subtensor.metagraph(self.config.netuid)
 
         bt.logging.info(f"Wallet: {self.wallet}")
+        logger.info('Wallet', wallet=f"{self.wallet}")
         bt.logging.info(f"Subtensor: {self.subtensor}")
+        logger.info('Subtensor', subtensor=f"{self.subtensor}")
         bt.logging.info(f"Metagraph: {self.metagraph}")
+        logger.info('Metagraph', metagraph=f"{self.metagraph}")
         
         # Check if the miner is registered on the Bittensor network before proceeding further.
         self.check_registered()
@@ -103,9 +115,16 @@ class BaseNeuron(ABC):
         self.uid = self.metagraph.hotkeys.index(
             self.wallet.hotkey.ss58_address
         )
+        
+        neuron_config['uid'] = self.uid
+        neuron_config['ip'] = re.search(r"/ipv4/([^:]*)", self.metagraph.addresses[self.uid]).group(1) 
+        neuron_config['coldkey'] = self.wallet.coldkey.ss58_address
+        neuron_config['hotkey'] = self.wallet.hotkey.ss58_address
+
         bt.logging.info(
             f"Running neuron on subnet: {self.config.netuid} with uid {self.uid} using network: {self.subtensor.chain_endpoint}"
         )
+        logger.info('Running neuron on subnet', netuid=f"{self.config.netuid}", uid=f"{self.uid}", network=f"{self.subtensor.chain_endpoint}")
         self.step = 0
         self.last_message_send = 0
         self.last_weights_set_block = 0
@@ -146,6 +165,8 @@ class BaseNeuron(ABC):
                 f"Wallet: {self.wallet} is not registered on netuid {self.config.netuid}."
                 f" Please register the hotkey using `btcli subnets register` before trying again"
             )
+            logger.error('Wallet is not registered on netuid', wallet=f"{self.wallet}", netuid=f"{self.config.netuid}")
+            logger.error(f" Please register the hotkey using `btcli subnets register` before trying again")
             exit()
 
     def should_sync_metagraph(self):
@@ -184,3 +205,4 @@ class BaseNeuron(ABC):
         bt.logging.warning(
             "load_state() not implemented for this neuron. You can implement this function to load model checkpoints or other useful data."
         )
+        logger.warning("load_state() not implemented for this neuron. You can implement this function to load model checkpoints or other useful data.")
