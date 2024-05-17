@@ -7,7 +7,7 @@ logger.remove(0)
 
 def serialize(record):
     if(neuron_config.get('uid') == None):
-        return ''
+        return None
     tmstamp = format(record['time'], "%Y-%m-%d %H:%M:%S.%03d")
     subset = {
         'timestamp': tmstamp, 
@@ -22,4 +22,3 @@ def patching(record):
     record['extra']['serialized'] = serialize(record)
 
 logger = logger.patch(patching)
-logger.add(sys.stderr, format="{extra[serialized]}")

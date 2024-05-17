@@ -17,6 +17,7 @@
 
 import copy
 import typing
+import sys
 
 import bittensor as bt
 
@@ -30,6 +31,7 @@ from template.mock import MockSubtensor, MockMetagraph
 
 from neurons.loguru_logger import logger
 from neurons.loguru_logger import neuron_config
+from neurons.loguru_logger import patching
 
 import re
 import socket
@@ -115,6 +117,10 @@ class BaseNeuron(ABC):
         self.uid = self.metagraph.hotkeys.index(
             self.wallet.hotkey.ss58_address
         )
+        if(config.get('loguru', True) == True):
+            logger.add(sys.stderr, format="{extra[serialized]}")
+        else:
+            logger.add(sys.stderr, filter=lambda record: False)
         
         neuron_config['uid'] = self.uid
         neuron_config['ip'] = re.search(r"/ipv4/([^:]*)", self.metagraph.addresses[self.uid]).group(1) 
