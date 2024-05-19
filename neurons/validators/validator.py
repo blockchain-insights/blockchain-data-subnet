@@ -116,7 +116,7 @@ class Validator(BaseValidatorNeuron):
 
             return True, response_time
         except Exception as e:
-            bt.logging.error(f"Cross validation error occurred", error=e)
+            bt.logging.error(f"Cross validation error occurred", error=traceback.format_exc())
             return None, None
 
     def is_miner_metadata_valid(self, response: Discovery):
