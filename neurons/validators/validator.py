@@ -151,16 +151,16 @@ class Validator(BaseValidatorNeuron):
         return True
     
     def is_response_status_code_valid(self, response):
-            hotkey = response.axon.hotkey
-            status_code = response.axon.status_code
-            status_message = response.axon.status_message
-            if response.is_failure:
-                bt.logging.info(f"({hotkey=}) Discovery response: Failure,  returned {status_code=}: {status_message=}")
-            elif response.is_blacklist:
-                bt.logging.info(f"({hotkey=}) Discovery response: Blacklist, returned {status_code=}: {status_message=}")
-            elif response.is_timeout:
-                bt.logging.info(f"({hotkey=}) Discovery response: Timeout")
-            return status_code == 200
+        hotkey = response.axon.hotkey
+        status_code = response.axon.status_code
+        status_message = response.axon.status_message
+        if response.is_failure:
+            bt.logging.info("Discovery response failure", reason="failure", hotkey=f"{hotkey}", status_message=f"{status_message}")
+        elif response.is_blacklist:
+            bt.logging.info("Discovery response failure", reason="blacklist", hotkey=f"{hotkey}", status_message=f"{status_message}")
+        elif response.is_timeout:
+            bt.logging.info("Discovery response failure", reason="timeout", hotkey=f"{hotkey}")
+        return status_code == 200
 
     def is_response_valid(self, response: Discovery):
         if not self.is_response_status_code_valid(response):
