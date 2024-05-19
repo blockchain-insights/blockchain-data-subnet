@@ -15,13 +15,13 @@ class Scorer:
 
         bt.logging.info("Score calculated",
                         hotkey=hotkey,
-                        benchmark_process_time_score=process_time_score,
+                        benchmark_process_time=process_time_score,
                         indexed_start_block_height=indexed_start_block_height,
                         indexed_end_block_height=indexed_end_block_height,
                         blockchain_last_block_height=blockchain_last_block_height,
                         miner_distribution=miner_distribution,
                         uptime_avg=uptime_avg,
-
+                        benchmark_process_time_score=process_time_score,
                         block_height_score=block_height_score,
                         block_height_recency_score=block_height_recency_score,
                         blockchain_score=blockchain_score,

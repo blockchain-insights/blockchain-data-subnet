@@ -111,6 +111,6 @@ class ResponseProcessor:
                     'responses': [resp for resp in items[i]]
                 }
 
-                bt.logging.info("Benchmark group", network=network, chunk=i, start=min_start, end=min_end, groups={[(resp.axon.ip, resp.axon.hotkey) for resp, _ in items[i]]})
+                bt.logging.info("Benchmark group", network=network, chunk=i, start=min_start, end=min_end, groups=f"{[(resp.axon.ip, resp.axon.hotkey) for resp, _ in items[i]]}")
 
         return new_groups
