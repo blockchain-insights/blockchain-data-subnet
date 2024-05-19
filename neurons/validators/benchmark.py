@@ -12,11 +12,9 @@ class BenchmarkValidator:
 
     def run_benchmarks(self, filtered_responses):
         try:
-            bt.logging.info(f"Starting benchmarking for {len(filtered_responses)} filtered responses.")
             response_processor = ResponseProcessor(self.validator_config)
-
             grouped_responses = response_processor.group_responses(filtered_responses)
-            bt.logging.info(f"Grouped responses into {len(grouped_responses)} groups.")
+            bt.logging.info("Run benchmark", groups=len(grouped_responses))
             results = {}
 
             for network, main_group in grouped_responses.items():
@@ -40,22 +38,21 @@ class BenchmarkValidator:
                             for uid_value, response_time, result in benchmark_results:
                                 results[uid_value] = (response_time, result == most_common_result)
                         except Exception as e:
-                            bt.logging.error(f"Error occurred during benchmarking: {traceback.format_exc()}")
+                            bt.logging.error("Run benchmark failed", error=traceback.format_exc())
 
             return results
         except Exception as e:
-            bt.logging.error(f"Error occurred during benchmarking: {traceback.format_exc()}")
+            bt.logging.error("Run benchmark failed", error=traceback.format_exc())
             return {}
 
     def execute_benchmarks(self, responses, benchmark_query):
-        bt.logging.info(f"Executing {benchmark_query=} query for {len(responses)} responses.")
         results = []
         for response, uid in responses:
             result = self.run_benchmark(response, uid, benchmark_query)
             results.append(result)
 
         filtered_run_results = [result for result in results if result[2] is not None]
-        bt.logging.info(f"Filtered {len(filtered_run_results)} valid benchmark results.")
+        bt.logging.info("Executing benchmark", responses=len(responses), results=len(filtered_run_results), benchmark_query=benchmark_query)
         return filtered_run_results
 
     def run_benchmark(self, response, uid, benchmark_query="RETURN 1"):
@@ -70,14 +67,14 @@ class BenchmarkValidator:
             )
 
             if benchmark_response is None or benchmark_response.output is None:
-                bt.logging.debug(f"Benchmark data retrieval failed for {response.axon.hotkey}")
+                bt.logging.info("Run benchmark failed", hotkey=response.axon.hotkey)
                 return None, None, None
 
             response_time = benchmark_response.dendrite.process_time
-            bt.logging.info(f"Benchmark data received for {response.axon.hotkey} with response time {response_time}, output: {benchmark_response.output}, uid: {uid_value}")
+            bt.logging.info("Run benchmark", hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, uid=uid_value)
             return uid_value, response_time, benchmark_response.output
         except Exception as e:
-            bt.logging.error(f"Error occurred during benchmarking {response.axon.hotkey}: {traceback.format_exc()}")
+            bt.logging.error("Run benchmark failed", error=traceback.format_exc())
             return None, None, None
 
 class ResponseProcessor:
@@ -114,6 +111,6 @@ class ResponseProcessor:
                     'responses': [resp for resp in items[i]]
                 }
 
-                bt.logging.info(f"Network {network}, Chunk {i}: Contains Responses {[(resp.axon.ip, resp.axon.hotkey) for resp, _ in items[i]]}")
+                bt.logging.info("Benchmark group", network=network, chunk=i, start=min_start, end=min_end, groups={[(resp.axon.ip, resp.axon.hotkey) for resp, _ in items[i]]})
 
         return new_groups
