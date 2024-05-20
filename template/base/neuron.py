@@ -72,7 +72,7 @@ class BaseNeuron(ABC):
         self.device = self.config.neuron.device
 
         # Log the configuration for reference.
-        bt.logging.info(self.config)
+        bt.logging.info(config = self.config)
 
         # Build Bittensor objects
         # These are core Bittensor classes to interact with the network.
@@ -92,9 +92,9 @@ class BaseNeuron(ABC):
             self.subtensor = bt.subtensor(config=self.config)
             self.metagraph = self.subtensor.metagraph(self.config.netuid)
 
-        bt.logging.info(f"Wallet: {self.wallet}")
-        bt.logging.info(f"Subtensor: {self.subtensor}")
-        bt.logging.info(f"Metagraph: {self.metagraph}")
+        bt.logging.info(wallet = self.wallet)
+        bt.logging.info(subtensor = self.subtensor)
+        bt.logging.info(metagraph = self.metagraph)
         
         # Check if the miner is registered on the Bittensor network before proceeding further.
         self.check_registered()
@@ -103,9 +103,7 @@ class BaseNeuron(ABC):
         self.uid = self.metagraph.hotkeys.index(
             self.wallet.hotkey.ss58_address
         )
-        bt.logging.info(
-            f"Running neuron on subnet: {self.config.netuid} with uid {self.uid} using network: {self.subtensor.chain_endpoint}"
-        )
+        bt.logging.info(f"Running neuron on subnet", netuid = self.config.netuid, uid = self.uid, network = self.subtensor.chain_endpoint)
         self.step = 0
         self.last_message_send = 0
         self.last_weights_set_block = 0
@@ -142,10 +140,8 @@ class BaseNeuron(ABC):
             netuid=self.config.netuid,
             hotkey_ss58=self.wallet.hotkey.ss58_address,
         ):
-            bt.logging.error(
-                f"Wallet: {self.wallet} is not registered on netuid {self.config.netuid}."
-                f" Please register the hotkey using `btcli subnets register` before trying again"
-            )
+            bt.logging.error(f"Wallet is not registered on subnet.", wallet = self.wallet, netuid = self.config.netuid)
+            bt.logging.error(f" Please register the hotkey using `btcli subnets register` before trying again")
             exit()
 
     def should_sync_metagraph(self):
