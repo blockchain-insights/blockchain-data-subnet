@@ -28,7 +28,7 @@ class BlacklistRegistryManager:
         try:
             return session.query(BlacklistRegistry).all()
         except Exception as e:
-            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error("Error occurred", error = traceback.format_exc())
         finally:
             session.close()
 
@@ -39,7 +39,7 @@ class BlacklistRegistryManager:
             session.commit()
         except Exception as e:
             session.rollback()
-            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error(f"Error occurred", error = traceback.format_exc())
         finally:
             session.close()
 
@@ -56,6 +56,6 @@ class BlacklistRegistryManager:
             session.commit()
         except Exception as e:
             session.rollback()
-            bt.logging.error(f"Error occurred: {traceback.format_exc()}")
+            bt.logging.error("Error occurred", error = traceback.format_exc())
         finally:
             session.close()

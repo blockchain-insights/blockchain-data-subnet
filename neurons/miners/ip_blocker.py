@@ -29,17 +29,17 @@ def main():
             blacklist_registry = BlacklistRegistryManager().get_blacklist()
             for entry in blacklist_registry:
                 if entry.ip_address == my_ip:
-                    bt.logging.warning(f"⚠️ Skipping blocking of own IP address: {entry.ip_address}")
+                    bt.logging.warning("⚠️ Skipping blocking of own IP address", ip_address = entry.ip_address)
                     continue
 
                 # add to iptables, but only missing entries
                 result = subprocess.run(["iptables", "-L", "INPUT", "-v", "-n"], capture_output=True, text=True)
                 if entry.ip_address not in result.stdout:
                     subprocess.run(["iptables", "-I", "DOCKER", "1", "-s", entry.ip_address, "-j", "DROP"], check=True)
-                    bt.logging.info(f"🚫💻 Blocked {entry.ip_address} for {entry.hot_key}")
+                    bt.logging.info("🚫💻 Blocked IP address", ip_address = entry.ip_address, hotkey = entry.hot_key)
                     needs_refresh = True
                 else:
-                    bt.logging.info(f"ℹ️ IP {entry.ip_address} already blocked")
+                    bt.logging.info("ℹ️ IP address already blocked", ip_address = entry.ip_address)
 
             if needs_refresh:
                 subprocess.run(["iptables-save"], check=True)
@@ -47,14 +47,14 @@ def main():
             else:
                 bt.logging.info(f"✅ No new blacklisted ips found")
 
-            bt.logging.info(f"Sleeping for {SLEEP_TIME} seconds")
+            bt.logging.info(f"Sleeping", sleep_time_in_seconds = SLEEP_TIME)
             time.sleep(SLEEP_TIME)
 
         except KeyboardInterrupt:
             bt.logging.info("Ip blocker killed by keyboard interrupt.")
             break
         except Exception as e:
-            bt.logging.error(traceback.format_exc())
+            bt.logging.error(error = traceback.format_exc())
             continue
 
 if __name__ == "__main__":
