@@ -125,7 +125,7 @@ class Miner(BaseMinerNeuron):
             synapse.output = protocol.BlockCheckOutput(
                 data_samples=data_samples,
             )
-            bt.logging.info(f"Serving miner random block check output", output = synapse.output)
+            bt.logging.info(f"Serving miner random block check output", output = f"{synapse.output}")
         except Exception as e:
             bt.logging.error('error', error = traceback.format_exc())
             synapse.output = None
@@ -143,7 +143,17 @@ class Miner(BaseMinerNeuron):
                 start_block_height=start_block,
                 block_height=last_block,
             )
-            bt.logging.info("Serving miner discovery output", output = synapse.output)
+            bt.logging.info("Serving miner discovery output",
+                            output = {
+                                'metadata' : {
+                                    'network' : synapse.output.metadata.network, 
+                                    'model_type' : synapse.output.metadata.model_type, 
+                                    'graph_schema' : synapse.output.metadata.graph_schema
+                                },
+                                'block_height' : synapse.output.block_height,
+                                'start_block_height' : synapse.output.start_block_height,
+                                'run_id' : synapse.output.run_id,
+                                'version' : synapse.output.version})
         except Exception as e:
             bt.logging.error('error', error = traceback.format_exc())
             synapse.output = None
@@ -151,7 +161,7 @@ class Miner(BaseMinerNeuron):
 
     async def challenge(self, synapse: protocol.Challenge ) -> protocol.Challenge:
         try:
-            bt.logging.info("challenge recieved", synapse = synapse)
+            bt.logging.info("challenge recieved", synapse = {'version' : synapse.version, 'in_total_amount' : synapse.in_total_amount, 'out_total_amount' : synapse.out_total_amount, 'tx_id_last_4_chars' : synapse.tx_id_last_4_chars, 'checksum' : synapse.checksum, 'output' : synapse.output})
 
             if self.config.network == NETWORK_BITCOIN:
                 synapse.output = self.graph_search.solve_challenge(
@@ -164,7 +174,7 @@ class Miner(BaseMinerNeuron):
                     checksum=synapse.checksum,
                 )
 
-            bt.logging.info(f"Serving miner challenge", output = synapse.output)
+            bt.logging.info(f"Serving miner challenge", output = f"{synapse.output}")
 
         except Exception as e:
             bt.logging.error('error', error = traceback.format_exc())
@@ -184,7 +194,7 @@ class Miner(BaseMinerNeuron):
                 result = self.graph_search.execute_benchmark_query(cypher_query=synapse.query)
                 synapse.output = result[0]
 
-            bt.logging.info(f"Serving miner benchmark output", output = synapse.output)
+            bt.logging.info(f"Serving miner benchmark output", output = f"{synapse.output}")
         except Exception as e:
             bt.logging.error('error', error = traceback.format_exc())
         return synapse
