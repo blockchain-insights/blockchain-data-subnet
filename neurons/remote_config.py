@@ -61,15 +61,15 @@ class RemoteConfig:
                         json.dump(self.config_cache, file)
 
                     self.last_update_time = current_time
-                    bt.logging.success(f"Updated config from {self.config_url}")
+                    bt.logging.success("Updated config", config_url = self.config_url)
                     break  # Break the loop if successful
                 except requests.exceptions.RequestException as e:
                     retries += 1
-                    bt.logging.error(f"Attempt {retries} failed to update config from {self.config_url}: {e}")
+                    bt.logging.error("Attempt failed to update config from", retries = retries, config_url = self.config_url, error = e)
                     if retries < MAX_RETRIES:
                         time.sleep(RETRY_INTERVAL)
                 except Exception as e:
-                    bt.logging.error(f"Non-retryable error occurred: {e}")
+                    bt.logging.error("Non-retryable error occurred", error = e)
                     break
 
     def get_config_composite_value(self, key, default=None):
