@@ -24,7 +24,6 @@ import asyncio
 import argparse
 import threading
 import bittensor as bt
-import multiprocessing 
 
 from typing import List
 from traceback import print_exception
@@ -33,8 +32,6 @@ from template.base.neuron import BaseNeuron
 from template.mock import MockDendrite
 from template.utils.config import add_validator_args
 
-from rich.table import Table
-from rich.console import Console
 
 class BaseValidatorNeuron(BaseNeuron):
     """
@@ -262,10 +259,7 @@ class BaseValidatorNeuron(BaseNeuron):
             ) = bt.utils.weight_utils.convert_weights_and_uids_for_emit(
                 uids=processed_weight_uids, weights=processed_weights
             )
-            table = Table(title="All Weights")
-            table.add_column("uid", justify="right", style="cyan", no_wrap=True)
-            table.add_column("weight", style="magenta")
-            table.add_column("score", style="magenta")
+
             uids_and_weights = list(
                 zip(uint_uids, uint_weights)
                 )
@@ -273,14 +267,15 @@ class BaseValidatorNeuron(BaseNeuron):
             sorted_uids_and_weights = sorted(
                 uids_and_weights, key=lambda x: x[1], reverse=True
             )
+
+            weight_log = {}
             for uid, weight in sorted_uids_and_weights:
-                table.add_row(
-                    str(uid),
+                weight_log[str(uid)] = (
                     str(round(weight, 4)),
                     str(int(self.scores[uid].item())),
                 )
-            console = Console()
-            console.print(table)
+
+            bt.logging.info("Setting weights: ", weights=weight_log)
 
             # Set the weights on chain via our subtensor connection.
             self.subtensor.set_weights(
