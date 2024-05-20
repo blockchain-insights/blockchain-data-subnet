@@ -47,8 +47,8 @@ class MockMetagraph(bt.metagraph):
             axon.ip = "127.0.0.0"
             axon.port = 8091
 
-        bt.logging.info(metagraph = self)
-        bt.logging.info(axons = self.axons)
+        bt.logging.info('metagraph', metagraph = f"{self}")
+        bt.logging.info('axons', axons = f"{self.axons}")
 
 
 class MockDendrite(bt.dendrite):

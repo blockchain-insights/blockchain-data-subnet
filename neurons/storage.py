@@ -67,12 +67,12 @@ def store_miner_metadata(config, graph_search, wallet, start_block, last_block):
         bt.logging.info("Storing miner metadata")
         metadata = get_metadata()
         subtensor.commit(wallet, config.netuid, Metadata.to_compact(metadata))
-        bt.logging.success("Stored miner metadata", metadata = metadata)
+        bt.logging.success("Stored miner metadata", metadata = metadata.to_compact())
         
     except bt.errors.MetadataError as e:
-        bt.logging.warning("Skipping storing miner metadata", error = e)
+        bt.logging.warning("Skipping storing miner metadata", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
     except Exception as e:
-        bt.logging.warning(f"Skipping storing miner metadata", error = e)
+        bt.logging.warning(f"Skipping storing miner metadata", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
 def store_validator_metadata(config, wallet, uid):
     def get_commitment(netuid: int, uid: int, block: Optional[int] = None) -> str:
@@ -103,15 +103,15 @@ def store_validator_metadata(config, wallet, uid):
         if existing_commitment is not None:
             dual_miner = MinerMetadata.from_compact(existing_commitment)
             if dual_miner.sb is not None:
-                bt.logging.info("Skipping storing validator metadata, as this is a dual hotkey for miner and validator", metadata = metadata)
+                bt.logging.info("Skipping storing validator metadata, as this is a dual hotkey for miner and validator", metadata = metadata.to_compact())
                 return
 
         subtensor.commit(wallet, config.netuid, metadata.to_compact())
-        bt.logging.success("Stored validator metadata", metadata = metadata)
+        bt.logging.success("Stored validator metadata", metadata = metadata.to_compact())
     except bt.errors.MetadataError as e:
-        bt.logging.warning("Skipping storing validator metadata", error = e)
+        bt.logging.warning("Skipping storing validator metadata", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
     except Exception as e:
-        bt.logging.warning("Skipping storing validator metadata", error = e)
+        bt.logging.warning("Skipping storing validator metadata", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
 def get_miners_metadata(config, metagraph):
     def get_commitment(netuid: int, uid: int, block: Optional[int] = None) -> str:

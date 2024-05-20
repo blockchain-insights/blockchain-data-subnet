@@ -269,7 +269,8 @@ class Validator(BaseValidatorNeuron):
             else:
                 bt.logging.info("Forward failed", reason="no_valid_responses")
         except Exception as e:
-            bt.logging.error("Forward failed", reason="exception", error=e.with_traceback())
+            bt.logging.error("Forward failed", reason="exception", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+        finally: pass
 
     def sync_validator(self):
         self.metadata = Metadata.build(self.metagraph, self.config)

@@ -54,7 +54,7 @@ def main():
             bt.logging.info("Ip blocker killed by keyboard interrupt.")
             break
         except Exception as e:
-            bt.logging.error(error = traceback.format_exc())
+            bt.logging.error('error', error = traceback.format_exc())
             continue
 
 if __name__ == "__main__":

@@ -72,7 +72,7 @@ class BaseNeuron(ABC):
         self.device = self.config.neuron.device
 
         # Log the configuration for reference.
-        bt.logging.info(config = self.config)
+        bt.logging.info('config', config = self.config)
 
         # Build Bittensor objects
         # These are core Bittensor classes to interact with the network.
@@ -92,9 +92,9 @@ class BaseNeuron(ABC):
             self.subtensor = bt.subtensor(config=self.config)
             self.metagraph = self.subtensor.metagraph(self.config.netuid)
 
-        bt.logging.info(wallet = self.wallet)
-        bt.logging.info(subtensor = self.subtensor)
-        bt.logging.info(metagraph = self.metagraph)
+        bt.logging.info('wallet', wallet = f"{self.wallet}")
+        bt.logging.info('subtensor', subtensor = f"{self.subtensor}")
+        bt.logging.info('metagraph', metagraph = f"{self.metagraph}")
         
         # Check if the miner is registered on the Bittensor network before proceeding further.
         self.check_registered()

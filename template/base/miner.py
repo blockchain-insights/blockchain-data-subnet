@@ -88,7 +88,7 @@ class BaseMinerNeuron(BaseNeuron):
 
         # Serve passes the axon information to the network + netuid we are hosting on.
         # This will auto-update if the axon port of external ip have changed.
-        bt.logging.info(miner_axon = self.axon, network = self.config.subtensor.chain_endpoint, netuid = self.config.netuid)
+        bt.logging.info('serving miner axon', miner_axon = f"{self.axon}", network = self.config.subtensor.chain_endpoint, netuid = self.config.netuid)
         self.axon.serve(netuid=self.config.netuid, subtensor=self.subtensor)
 
         # Start  starts the miner's axon, making it active on the network.
@@ -122,7 +122,7 @@ class BaseMinerNeuron(BaseNeuron):
 
         # In case of unforeseen errors, the miner will log the error and continue operations.
         except Exception as e:
-            bt.logging.error(error = traceback.format_exc())
+            bt.logging.error('error', error = traceback.format_exc())
 
     def run_in_background_thread(self):
         """

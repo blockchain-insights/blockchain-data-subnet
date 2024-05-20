@@ -56,7 +56,7 @@ async def ping_uids(dendrite, metagraph, uids, timeout=3):
             if response.dendrite.status_code != 200
         ]
     except Exception as e:
-        bt.logging.error(f"Dendrite ping failed", error = e)
+        bt.logging.error(f"Dendrite ping failed", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
         successful_uids = []
         failed_uids = uids
     bt.logging.debug("ping() results", successful_uids = successful_uids, failed_uids = failed_uids)

@@ -179,7 +179,7 @@ class GraphIndexer:
                         logger.info(f"Creating index", index_name = index_name)
                         session.run(statement)
                     except Exception as e:
-                        logger.error(f"An exception occurred while creating index", index_name = index_name, error = e)
+                        logger.error(f"An exception occurred while creating index", index_name = index_name, error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
     def create_graph_focused_on_money_flow(self, in_memory_graph, _bitcoin_node, batch_size=8):
         block_node = in_memory_graph["block"]
@@ -253,7 +253,7 @@ class GraphIndexer:
 
             except Exception as e:
                 transaction.rollback()
-                logger.error(f"An exception occurred", error = e)
+                logger.error(f"An exception occurred", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
                 return False
 
             finally:

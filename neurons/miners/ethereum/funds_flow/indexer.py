@@ -342,7 +342,7 @@ if __name__ == "__main__":
                 logger.error('ETHEREUM_MAIN_START_BLOCK_HEIGHT & ETHEREUM_MAIN_END_BLOCK_HEIGHT should be given by ENV')
 
     except Exception as e:
-        logger.error(f"Retry failed with error", error = e)
+        logger.error(f"Retry failed with error", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
         logger.info(f"Retrying in seconds...", retry_delay = retry_delay)
         time.sleep(retry_delay)
     finally:

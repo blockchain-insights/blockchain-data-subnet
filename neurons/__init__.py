@@ -29,6 +29,8 @@ bt.btlogging.logging.debug = bt.btlogging.logger.debug
 bt.btlogging.logging.info = bt.btlogging.logger.info
 bt.btlogging.logging.warning = bt.btlogging.logger.warning
 bt.btlogging.logging.error = bt.btlogging.logger.error
+bt.btlogging.logging.success = bt.btlogging.logger.success
+bt.btlogging.logging.trace = bt.btlogging.logger.trace
 
 
 

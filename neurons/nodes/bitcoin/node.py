@@ -66,7 +66,7 @@ class BitcoinNode(Node):
         try:
             return rpc_connection.getblockcount()
         except Exception as e:
-            logger.error(f"RPC Provider with Error", error = e)
+            logger.error(f"RPC Provider with Error", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
      
@@ -77,7 +77,7 @@ class BitcoinNode(Node):
             block_hash = rpc_connection.getblockhash(block_height)
             return rpc_connection.getblock(block_hash, 2)
         except Exception as e:
-            logger.error(f"RPC Provider with Error", error = e)
+            logger.error(f"RPC Provider with Error", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
 

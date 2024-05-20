@@ -74,12 +74,12 @@ class Miner(BaseMinerNeuron):
                 with open(dev_config_path, 'r') as f:
                     dev_config = yaml.safe_load(f.read())
                 config.update(dev_config)
-                bt.logging.info(f"config updated", config_path = dev_config_path)
+                #bt.logging.info(f"config updated", config_path = dev_config_path)
 
             else:
                 with open(dev_config_path, 'w') as f:
                     yaml.safe_dump(config, f)
-                bt.logging.info(f"config stored", config_path = dev_config_path)
+                #bt.logging.info(f"config stored", config_path = dev_config_path)
 
         return config
     
@@ -112,7 +112,7 @@ class Miner(BaseMinerNeuron):
             priority_fn=self.benchmark_priority,
         )
 
-        bt.logging.info(f"Axon created", axon = self.axon)
+        bt.logging.info(f"Axon created", axon = f"{self.axon}")
 
         self.graph_search = get_graph_search(config)
 
@@ -127,7 +127,7 @@ class Miner(BaseMinerNeuron):
             )
             bt.logging.info(f"Serving miner random block check output", output = synapse.output)
         except Exception as e:
-            bt.logging.error(error = traceback.format_exc())
+            bt.logging.error('error', error = traceback.format_exc())
             synapse.output = None
         return synapse
             
@@ -145,7 +145,7 @@ class Miner(BaseMinerNeuron):
             )
             bt.logging.info("Serving miner discovery output", output = synapse.output)
         except Exception as e:
-            bt.logging.error(error = traceback.format_exc())
+            bt.logging.error('error', error = traceback.format_exc())
             synapse.output = None
         return synapse
 
@@ -167,7 +167,7 @@ class Miner(BaseMinerNeuron):
             bt.logging.info(f"Serving miner challenge", output = synapse.output)
 
         except Exception as e:
-            bt.logging.error(error = traceback.format_exc())
+            bt.logging.error('error', error = traceback.format_exc())
             synapse.output = None
         return synapse
 
@@ -186,7 +186,7 @@ class Miner(BaseMinerNeuron):
 
             bt.logging.info(f"Serving miner benchmark output", output = synapse.output)
         except Exception as e:
-            bt.logging.error(error = traceback.format_exc())
+            bt.logging.error('error', error = traceback.format_exc())
         return synapse
 
     async def block_check_blacklist(self, synapse: protocol.BlockCheck) -> typing.Tuple[bool, str]:
@@ -269,7 +269,7 @@ class Miner(BaseMinerNeuron):
             )
 
         except Exception as e:
-            bt.logging.error("Failed to set weights on chain", error = e)
+            bt.logging.error("Failed to set weights on chain", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
         bt.logging.info(f"Set weights", weights = chain_weights)
     
@@ -308,7 +308,7 @@ def wait_for_blocks_sync():
                     bt.logging.info(f"Graph Sync", current_block_height = current_block_height, latest_block_height = latest_block_height)
                     time.sleep(bt.__blocktime__ * 12)
             except Exception as e:
-                bt.logging.error(error = traceback.format_exc())
+                bt.logging.error('error', error = traceback.format_exc())
                 time.sleep(bt.__blocktime__ * 12)
                 bt.logging.info(f"Failed to connect with graph database. Retrying...")
                 continue
