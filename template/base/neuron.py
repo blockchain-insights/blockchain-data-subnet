@@ -18,6 +18,7 @@
 import copy
 import typing
 import re
+import json
 
 import bittensor as bt
 
@@ -74,7 +75,10 @@ class BaseNeuron(ABC):
         self.device = self.config.neuron.device
 
         # Log the configuration for reference.
-        bt.logging.info('config', config = self.config)
+        json_config = json.loads(json.dumps(self.config, indent = 2))
+        if(json_config.get('graph_db_password')): json_config.pop('graph_db_password')
+        if(json_config.get('db_connection_string')): json_config.pop('db_connection_string')
+        bt.logging.info('config', config = json_config)
 
         # Build Bittensor objects
         # These are core Bittensor classes to interact with the network.
