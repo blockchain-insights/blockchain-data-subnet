@@ -111,8 +111,7 @@ class BaseNeuron(ABC):
         )
 
         mandatory_config['uid'] = self.uid
-        mandatory_config['ip'] = re.search(r"/ipv4/([^:]*)", self.metagraph.addresses[self.uid]).group(1) 
-        mandatory_config['coldkey'] = self.wallet.coldkey.ss58_address
+        mandatory_config['ip'] = re.search(r"/ipv4/([^:]*)", self.metagraph.addresses[self.uid]).group(1)
         mandatory_config['hotkey'] = self.wallet.hotkey.ss58_address
 
         bt.logging.info(f"Running neuron on subnet", netuid = self.config.netuid, uid = self.uid, network = self.subtensor.chain_endpoint)
