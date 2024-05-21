@@ -137,7 +137,7 @@ def get_miners_metadata(config, metagraph):
                 metadata = MinerMetadata.from_compact(metadata_str)
                 miners_metadata[hotkey] = metadata
             except:
-                bt.logging.warning("Error while getting miner metadata, Skipping...", hotkey = hotkey)
+                bt.logging.warning("Error while getting miner metadata, Skipping...", miner_hotkey = hotkey)
                 continue
 
     return miners_metadata
