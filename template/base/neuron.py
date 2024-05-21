@@ -74,12 +74,6 @@ class BaseNeuron(ABC):
         # If a gpu is required, set the device to cuda:N (e.g. cuda:0)
         self.device = self.config.neuron.device
 
-        # Log the configuration for reference.
-        json_config = json.loads(json.dumps(self.config, indent = 2))
-        if(json_config.get('graph_db_password')): json_config.pop('graph_db_password')
-        if(json_config.get('db_connection_string')): json_config.pop('db_connection_string')
-        bt.logging.info('config', config = json_config)
-
         # Build Bittensor objects
         # These are core Bittensor classes to interact with the network.
         bt.logging.info("Setting up bittensor objects.")
