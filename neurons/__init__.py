@@ -2,6 +2,7 @@ import json
 
 import bittensor as bt
 
+mandatory_config = {}
 
 def serialize(record):
     tmstamp = format(record['time'], "%Y-%m-%d %H:%M:%S.%03d")
@@ -10,6 +11,7 @@ def serialize(record):
         'level': record['level'].name,
         'message': record['message'],
     }
+    subset.update(mandatory_config)
     subset.update(record['extra'])
     return json.dumps(subset)
 
@@ -29,6 +31,8 @@ bt.btlogging.logging.debug = bt.btlogging.logger.debug
 bt.btlogging.logging.info = bt.btlogging.logger.info
 bt.btlogging.logging.warning = bt.btlogging.logger.warning
 bt.btlogging.logging.error = bt.btlogging.logger.error
+bt.btlogging.logging.success = bt.btlogging.logger.success
+bt.btlogging.logging.trace = bt.btlogging.logger.trace
 
 
 
