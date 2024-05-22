@@ -14,7 +14,7 @@ class BenchmarkValidator:
         try:
             response_processor = ResponseProcessor(self.validator_config)
             grouped_responses = response_processor.group_responses(filtered_responses)
-            bt.logging.info("Run benchmark", groups=len(grouped_responses))
+            bt.logging.info("Run benchmarks", groups=len(grouped_responses))
             results = {}
 
             for network, main_group in grouped_responses.items():
