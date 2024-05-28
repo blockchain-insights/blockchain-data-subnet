@@ -135,7 +135,7 @@ class BaseNeuron(ABC):
         )
 
         mandatory_config['uid'] = self.uid
-        mandatory_config['ip'] = get_ip_address()
+        mandatory_config['ip'] = get_ip_address() 
         mandatory_config['hotkey'] = self.wallet.hotkey.ss58_address
         mandatory_config['coldkey'] = self.metagraph.coldkeys[self.uid]
 
