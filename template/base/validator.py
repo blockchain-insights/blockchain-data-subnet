@@ -24,7 +24,6 @@ import asyncio
 import argparse
 import threading
 import bittensor as bt
-import multiprocessing 
 
 from typing import List
 from traceback import print_exception
@@ -33,8 +32,7 @@ from template.base.neuron import BaseNeuron
 from template.mock import MockDendrite
 from template.utils.config import add_validator_args
 
-from rich.table import Table
-from rich.console import Console
+from neurons import logger
 
 class BaseValidatorNeuron(BaseNeuron):
     """
@@ -66,22 +64,22 @@ class BaseValidatorNeuron(BaseNeuron):
             self.dendrite = MockDendrite(wallet=self.wallet)
         else:
             self.dendrite = bt.dendrite(wallet=self.wallet)
-        bt.logging.info(f"Dendrite: {self.dendrite}")
+        logger.info('dendrite', dendrite = f"{self.dendrite}")
 
         # Set up initial scoring weights for validation
-        bt.logging.info("Building validation weights.")
+        logger.info("Building validation weights.")
         zeroes = torch.zeros_like(self.metagraph.S, dtype=torch.float32)
         try:
             self.load_state()
-            bt.logging.info("Scores loaded from file")
+            logger.info("Scores loaded from file")
 
             # Check if loaded scores have the same shape as metagraph's S
             if self.scores.shape != zeroes.shape:
                 self.scores = zeroes
-                bt.logging.warning("Initialized scores to zeros due to score shape mismatch.")
+                logger.warning("Initialized scores to zeros due to score shape mismatch.")
         except:
             self.scores = zeroes
-            bt.logging.info(f"Initialized all scores to 0")
+            logger.info(f"Initialized all scores to 0")
 
 
         # Init sync with the network. Updates the metagraph.
@@ -91,12 +89,12 @@ class BaseValidatorNeuron(BaseNeuron):
         if not self.config.neuron.axon_off:
             self.serve_axon()
         else:
-            bt.logging.warning("axon off, not serving ip to chain.")
+            logger.warning("axon off, not serving ip to chain.")
 
     def serve_axon(self):
         """Serve axon to enable external connections."""
 
-        bt.logging.info("serving ip to chain...")
+        logger.info("serving ip to chain...")
         try:
             self.axon = bt.axon(wallet=self.wallet, config=self.config)
 
@@ -105,17 +103,13 @@ class BaseValidatorNeuron(BaseNeuron):
                     netuid=self.config.netuid,
                     axon=self.axon,
                 )
-                bt.logging.info(
-                    f"Running validator {self.axon} on network: {self.config.subtensor.chain_endpoint} with netuid: {self.config.netuid}"
-                )
+                logger.info(f"Running validator", axon = f"{self.axon}", network = self.config.subtensor.chain_endpoint, netuid = self.config.netuid)
             except Exception as e:
-                bt.logging.error(f"Failed to serve Axon with exception: {e}")
+                logger.error(f"Failed to serve Axon", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
                 pass
 
         except Exception as e:
-            bt.logging.error(
-                f"Failed to create Axon initialize with exception: {e}"
-            )
+            logger.error(f"Failed to create Axon initialize", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
             pass
 
     async def concurrent_forward(self):
@@ -148,12 +142,12 @@ class BaseValidatorNeuron(BaseNeuron):
         # Check that validator is registered on the network.
         self.sync()
 
-        bt.logging.info(f"Validator starting at block: {self.block}")
+        logger.info(f"Validator starting", block = self.block)
 
         # This loop maintains the validator's operations until intentionally stopped.
         try:
             while True:
-                bt.logging.info(f"step({self.step}) block({self.block})")
+                logger.info('step', step = self.step, block = self.block)
 
                 # Run multiple forwards concurrently.
                 self.loop.run_until_complete(self.concurrent_forward())
@@ -170,15 +164,13 @@ class BaseValidatorNeuron(BaseNeuron):
         # If someone intentionally stops the validator, it'll safely terminate operations.
         except KeyboardInterrupt:
             self.axon.stop()
-            bt.logging.success("Validator killed by keyboard interrupt.")
+            logger.success("Validator killed by keyboard interrupt.")
             exit()
 
         # In case of unforeseen errors, the validator will log the error and continue operations.
         except Exception as err:
-            bt.logging.error("Error during validation", str(err))
-            bt.logging.debug(
-                print_exception(type(err), err, err.__traceback__)
-            )
+            logger.error("Error during validation",error = str(err))
+            logger.debug('error', error = print_exception(type(err), err, err.__traceback__))
 
     def run_in_background_thread(self):
         """
@@ -186,23 +178,23 @@ class BaseValidatorNeuron(BaseNeuron):
         This method facilitates the use of the validator in a 'with' statement.
         """
         if not self.is_running:
-            bt.logging.debug("Starting validator in background thread.")
+            logger.debug("Starting validator in background thread.")
             self.should_exit = False
             self.thread = threading.Thread(target=self.run, daemon=True)
             self.thread.start()
             self.is_running = True
-            bt.logging.debug("Started")
+            logger.debug("Started")
 
     def stop_run_thread(self):
         """
         Stops the validator's operations that are running in the background thread.
         """
         if self.is_running:
-            bt.logging.debug("Stopping validator in background thread.")
+            logger.debug("Stopping validator in background thread.")
             self.should_exit = True
             self.thread.join(5)
             self.is_running = False
-            bt.logging.debug("Stopped")
+            logger.debug("Stopped")
 
     def __enter__(self):
         self.run_in_background_thread()
@@ -222,11 +214,11 @@ class BaseValidatorNeuron(BaseNeuron):
                        None if the context was exited without an exception.
         """
         if self.is_running:
-            bt.logging.debug("Stopping validator in background thread.")
+            logger.debug("Stopping validator in background thread.")
             self.should_exit = True
             self.thread.join(5)
             self.is_running = False
-            bt.logging.debug("Stopped")
+            logger.debug("Stopped")
 
     def set_weights(self):
         """
@@ -235,7 +227,7 @@ class BaseValidatorNeuron(BaseNeuron):
         try:
             # Check if self.scores contains any NaN values and log a warning if it does.
             if torch.isnan(self.scores).any():
-                bt.logging.warning(
+                logger.warning(
                     f"Scores contain NaN values. This may be due to a lack of responses from miners, or a bug in your reward functions."
                 )
 
@@ -262,10 +254,7 @@ class BaseValidatorNeuron(BaseNeuron):
             ) = bt.utils.weight_utils.convert_weights_and_uids_for_emit(
                 uids=processed_weight_uids, weights=processed_weights
             )
-            table = Table(title="All Weights")
-            table.add_column("uid", justify="right", style="cyan", no_wrap=True)
-            table.add_column("weight", style="magenta")
-            table.add_column("score", style="magenta")
+
             uids_and_weights = list(
                 zip(uint_uids, uint_weights)
                 )
@@ -273,14 +262,15 @@ class BaseValidatorNeuron(BaseNeuron):
             sorted_uids_and_weights = sorted(
                 uids_and_weights, key=lambda x: x[1], reverse=True
             )
+
+            weight_log = {}
             for uid, weight in sorted_uids_and_weights:
-                table.add_row(
-                    str(uid),
+                weight_log[str(uid)] = (
                     str(round(weight, 4)),
                     str(int(self.scores[uid].item())),
                 )
-            console = Console()
-            console.print(table)
+
+            logger.info("Setting weights: ", weights=weight_log)
 
             # Set the weights on chain via our subtensor connection.
             self.subtensor.set_weights(
@@ -296,15 +286,13 @@ class BaseValidatorNeuron(BaseNeuron):
             with self.lock:
                 self.last_weights_set_block = self.block
 
-            bt.logging.success("Finished setting weights.")
+            logger.success("Finished setting weights.")
         except Exception as e:
-            bt.logging.error(
-                f"Failed to set weights on chain with exception: { e }"
-            )
+            logger.error(f"Failed to set weights on chain", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
         
     def resync_metagraph(self):
         """Resyncs the metagraph and updates the hotkeys and moving averages based on the new metagraph."""
-        bt.logging.info("resync_metagraph()")
+        logger.info("resync_metagraph()")
 
         # Copies state of metagraph before syncing.
         previous_metagraph = copy.deepcopy(self.metagraph)
@@ -316,7 +304,7 @@ class BaseValidatorNeuron(BaseNeuron):
         if previous_metagraph.axons == self.metagraph.axons:
             return
 
-        bt.logging.info(
+        logger.info(
             "Metagraph updated, re-syncing hotkeys, dendrite pool and moving averages"
         )
         # Zero out all hotkeys that have been replaced.
@@ -343,7 +331,7 @@ class BaseValidatorNeuron(BaseNeuron):
 
         # Check if rewards contains NaN values.
         if torch.isnan(rewards).any():
-            bt.logging.warning(f"NaN values detected in rewards: {rewards}")
+            logger.warning(f"NaN values detected in rewards", rewards = rewards.tolist())
             # Replace any NaN values in rewards with 0.
             rewards = torch.nan_to_num(rewards, 0)
 
@@ -358,7 +346,7 @@ class BaseValidatorNeuron(BaseNeuron):
         scattered_rewards: torch.FloatTensor = self.scores.scatter(
             0, uids_tensor, rewards
         ).to(self.device)
-        bt.logging.debug(f"Scattered rewards: {rewards}")
+        logger.debug('scattered rewards', scattered_rewards = rewards.tolist())
 
         # Update scores with rewards produced by this step.
         # shape: [ metagraph.n ]
@@ -366,11 +354,11 @@ class BaseValidatorNeuron(BaseNeuron):
         self.scores: torch.FloatTensor = alpha * scattered_rewards + (
             1 - alpha
         ) * self.scores.to(self.device)
-        bt.logging.debug(f"Updated moving avg scores: {self.scores}")
+        logger.debug(f"Updated moving avg scores", scores = self.scores.tolist())
 
     def save_state(self):
         """Saves the state of the validator to a file."""
-        bt.logging.info("Saving validator state.")
+        logger.info("Saving validator state.")
 
         # Save the state of the validator to file.
         torch.save(

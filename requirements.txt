@@ -1,4 +1,4 @@
-bittensor==6.9.3
+bittensor==6.12.2
 torch
 python-bitcoinrpc
 bitcoin
@@ -22,3 +22,6 @@ langchain
 langchain-openai
 psycopg2-binary
 loguru
+pymgclient
+gqlalchemy==1.4.1
+pydantic==1.10.12
