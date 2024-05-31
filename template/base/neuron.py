@@ -32,6 +32,14 @@ from template.mock import MockSubtensor, MockMetagraph
 
 from neurons import mandatory_config
 
+import socket
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip_address = s.getsockname()[0]
+    s.close()
+    return ip_address
+
 class BaseNeuron(ABC):
     """
     Base class for Bittensor miners. This class is abstract and should be inherited by a subclass. It contains the core logic for all neurons; validators and miners.
@@ -74,6 +82,28 @@ class BaseNeuron(ABC):
         # If a gpu is required, set the device to cuda:N (e.g. cuda:0)
         self.device = self.config.neuron.device
 
+        def _copy(newconfig, config, allow):
+            if(isinstance(allow, str)):
+                newconfig[allow] = config[allow]
+            elif(isinstance(allow, tuple)):
+                if(len(allow) == 1):
+                    newconfig[allow[0]] = config[allow[0]]
+                else:
+                    if(newconfig.get(allow[0]) == None): newconfig[allow[0]] = {}
+                    _copy(newconfig[allow[0]], config[allow[0]], allow[1:])
+        def filter(config, allowlist):
+            newconfig = {}
+            for item in allowlist:
+                _copy(newconfig, config, item)
+            return newconfig
+
+        whitelist_config_keys = {'alpha', 'api_port', ('logging', 'logging_dir'), ('logging', 'record_log'), 'netuid', 
+                                 ('subtensor', 'chain_endpoint'), ('subtensor', 'network'), 'timeout', 'api_timeout', 'top_rate', 'wallet'}
+
+        json_config = json.loads(json.dumps(self.config, indent = 2))
+        config_out = filter(json_config, whitelist_config_keys)
+        bt.logging.info('config', config = config_out)
+
         # Build Bittensor objects
         # These are core Bittensor classes to interact with the network.
         bt.logging.info("Setting up bittensor objects.")
@@ -105,8 +135,9 @@ class BaseNeuron(ABC):
         )
 
         mandatory_config['uid'] = self.uid
-        mandatory_config['ip'] = re.search(r"/ipv4/([^:]*)", self.metagraph.addresses[self.uid]).group(1)
+        mandatory_config['ip'] = get_ip_address() 
         mandatory_config['hotkey'] = self.wallet.hotkey.ss58_address
+        mandatory_config['coldkey'] = self.metagraph.coldkeys[self.uid]
 
         bt.logging.info(f"Running neuron on subnet", netuid = self.config.netuid, uid = self.uid, network = self.subtensor.chain_endpoint)
         self.step = 0
@@ -145,7 +176,7 @@ class BaseNeuron(ABC):
             netuid=self.config.netuid,
             hotkey_ss58=self.wallet.hotkey.ss58_address,
         ):
-            bt.logging.error(f"Wallet is not registered on subnet.", wallet = self.wallet, netuid = self.config.netuid)
+            bt.logging.error(f"Wallet is not registered on subnet.", wallet = f"{self.wallet}", netuid = self.config.netuid)
             bt.logging.error(f" Please register the hotkey using `btcli subnets register` before trying again")
             exit()
 
