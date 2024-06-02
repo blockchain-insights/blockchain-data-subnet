@@ -29,8 +29,9 @@ import json
 
 import insights
 from insights.api.insight_api import APIServer
-from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE, MODEL_TYPE_BALANCE_TRACKING, \
-    NETWORK_BITCOIN
+from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE
+from protocols.llm_engine import MODEL_TYPE_BALANCE_TRACKING
+from protocols.blockchain import NETWORK_BITCOIN
 
 from neurons.remote_config import ValidatorConfig
 from neurons.nodes.factory import NodeFactory
@@ -135,9 +136,12 @@ class Validator(BaseValidatorNeuron):
                 config=self.config,
                 wallet=self.wallet,
                 subtensor=self.subtensor,
-                metagraph=self.metagraph,
-                scores=self.scores
+                metagraph=self.metagraph
             )
+        immunity_period = self.subtensor.immunity_period(self.config.netuid)
+        bt.logging.info("Immunity period", immunity_period = immunity_period)
+        self.miner_uptime_manager.immunity_period = immunity_period
+
 
 
     def cross_validate(self, axon, node, start_block_height, last_block_height):
@@ -224,11 +228,9 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="status_code_invalid", score=float(score))
                 return score
             if not is_discovery_response_valid(response):
-                self.miner_uptime_manager.down(uid_value, hotkey)
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="invalid_response", score=0)
                 return 0
             if not self.is_miner_metadata_valid(response):
-                self.miner_uptime_manager.down(uid_value, hotkey)
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="metadata_invalid", score=0)
                 return 0
 
@@ -249,22 +251,19 @@ class Validator(BaseValidatorNeuron):
             else:
                 logger.info("Ping Test passed", miner_hotkey=hotkey, average_ping_time=average_ping_time)
 
-            cross_validation_result, _ = self.cross_validate(response.axon, self.nodes[network], self.challenge_factory[network], start_block_height, last_block_height, balance_model_last_block)
+            cross_validation_result, _ = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height)
             if cross_validation_result is None or not cross_validation_result:
-                self.miner_uptime_manager.down(uid_value, hotkey)
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="cross_validation_failed", score=0)
                 return 0
 
             benchmark_result = benchmarks_result.get(uid_value)
             if benchmark_result is None:
                 score = self.metagraph.T[uid]/4
-                self.miner_uptime_manager.down(uid_value, hotkey)
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="benchmark_timeout", score=float(score))
                 return score
 
             response_time, benchmark_is_valid = benchmark_result
             if not benchmark_is_valid:
-                self.miner_uptime_manager.down(uid_value, hotkey)
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="benchmark_failed", score=0)
                 return 0
 

@@ -1,7 +1,9 @@
 from decimal import Decimal
 import bittensor as bt
 from bitcoinrpc.authproxy import AuthServiceProxy
-from insights.protocol import Challenge, MODEL_TYPE_FUNDS_FLOW, MODEL_TYPE_BALANCE_TRACKING
+from protocols.llm_engine import MODEL_TYPE_FUNDS_FLOW, MODEL_TYPE_BALANCE_TRACKING
+
+from insights.protocol import Challenge
 from neurons.nodes.bitcoin.node_utils import SATOSHI, VIN, VOUT, Transaction, parse_block_data
 
 
@@ -14,6 +16,7 @@ from neurons.nodes.bitcoin.node_utils import (
     check_if_block_is_valid_for_challenge
 )
 from neurons.setup_logger import setup_logger
+from neurons.setup_logger import logger_extra_data
 
 from .node_utils import initialize_tx_out_hash_table, get_tx_out_hash_table_sub_keys
 
@@ -24,10 +27,10 @@ import os
 import random
 
 parser = argparse.ArgumentParser()
-from neurons import logger
 bt.logging.add_args(parser)
 indexlogger = setup_logger("BitcoinNode")
- 
+
+
 class BitcoinNode(Node):
     def __init__(self, node_rpc_url: str = None):
         self.tx_out_hash_table = initialize_tx_out_hash_table()
@@ -49,7 +52,7 @@ class BitcoinNode(Node):
             self.node_rpc_url = node_rpc_url
 
     def load_tx_out_hash_table(self, pickle_path: str, reset: bool = False):
-        indexlogger.info(f"Loading tx_out hash table", pickle_path = pickle_path)
+        indexlogger.info(f"Loading tx_out hash table", extra = logger_extra_data(pickle_path = pickle_path))
         with open(pickle_path, 'rb') as file:
             start_time = time.time()
             hash_table = pickle.load(file)
@@ -60,14 +63,14 @@ class BitcoinNode(Node):
                 for sub_key in sub_keys:
                     self.tx_out_hash_table[sub_key].update(hash_table[sub_key])
             end_time = time.time()
-            indexlogger.info(f"Successfully loaded tx_out hash table", pickle_path = pickle_path, time_taken = end_time - start_time)
+            indexlogger.info(f"Successfully loaded tx_out hash table", extra = logger_extra_data(pickle_path = pickle_path, time_taken = end_time - start_time))
 
     def get_current_block_height(self):
         rpc_connection = AuthServiceProxy(self.node_rpc_url)
         try:
             return rpc_connection.getblockcount()
         except Exception as e:
-            indexlogger.error(f"RPC Provider with Error", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+            indexlogger.error(f"RPC Provider with Error", extra = logger_extra_data(error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args}))
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
      
@@ -78,7 +81,7 @@ class BitcoinNode(Node):
             block_hash = rpc_connection.getblockhash(block_height)
             return rpc_connection.getblock(block_hash, 2)
         except Exception as e:
-            indexlogger.error(f"RPC Provider with Error", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+            indexlogger.error(f"RPC Provider with Error", extra = logger_extra_data(error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args}))
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
 

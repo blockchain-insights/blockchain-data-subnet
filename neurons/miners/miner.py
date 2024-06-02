@@ -5,21 +5,18 @@ import re
 import time
 import traceback
 import typing
-
 import bittensor as bt
 import yaml
+from protocols.blockchain import NETWORK_BITCOIN, NETWORK_ETHEREUM
+from protocols.llm_engine import LlmMessage, QueryOutput, LLM_ERROR_TYPE_NOT_SUPPORTED, LLM_ERROR_MESSAGES, \
+    LLM_ERROR_GENERAL_RESPONSE_FAILED, LLM_CLIENT_ERROR
 
 from insights import protocol
-from insights.protocol import NETWORK_BITCOIN, NETWORK_ETHEREUM, QueryOutput, LLM_ERROR_GENERAL_RESPONSE_FAILED, \
-    LLM_CLIENT_ERROR
 from neurons import logger
 from neurons.miners import blacklist
 from neurons.miners.llm_client import LLMClient
-from neurons.miners.query import get_graph_search, get_graph_indexer, get_balance_search
-from neurons.nodes.factory import NodeFactory
 from neurons.remote_config import MinerConfig
 from neurons.storage import store_miner_metadata
-# import base miner class which takes care of most of the boilerplate
 from template.base.miner import BaseMinerNeuron
 
 
@@ -88,6 +85,7 @@ class Miner(BaseMinerNeuron):
                 else:
                     if(newconfig.get(allow[0]) == None): newconfig[allow[0]] = {}
                     _copy(newconfig[allow[0]], config[allow[0]], allow[1:])
+
         def filter(config, allowlist):
             newconfig = {}
             for item in allowlist:
@@ -97,7 +95,7 @@ class Miner(BaseMinerNeuron):
         whitelist_config_keys = {('axon', 'port'), 'graph_db_url', 'graph_db_user', 'llm_engine_url', ('logging', 'logging_dir'), ('logging', 'record_log'), 'netuid',
                                 'network', ('subtensor', 'chain_endpoint'), ('subtensor', 'network'), 'wallet'}
 
-        json_config = json.loads(json.dumps(config, indent = 2))
+        json_config = json.loads(json.dumps(config, indent=2))
         config_out = filter(json_config, whitelist_config_keys)
         logger.info('config', config = config_out)
 
@@ -111,9 +109,12 @@ class Miner(BaseMinerNeuron):
         self.request_timestamps: dict = {}
         
         self.axon = bt.axon(wallet=self.wallet, port=self.config.axon.port)        
-        # Attach determiners which functions are called when servicing a request.
         logger.info(f"Attaching forwards functions to miner axon.")
-        self.axon.attach(
+        (self.axon.attach(
+            forward_fn=self.health_check,
+            blacklist_fn=self.health_check_blacklist,
+            priority_fn=self.health_check_priority)
+        .attach(
             forward_fn=self.discovery,
             blacklist_fn=self.discovery_blacklist,
             priority_fn=self.discovery_priority,
@@ -129,58 +130,81 @@ class Miner(BaseMinerNeuron):
             forward_fn=self.llm_query,
             blacklist_fn=self.llm_query_blacklist,
             priority_fn=self.llm_query_priority
-        )
+        ))
 
         logger.info(f"Axon created: {self.axon}")
 
-        self.graph_search = get_graph_search(config)
-        self.balance_search = get_balance_search(config)
         self.miner_config = MinerConfig().load_and_get_config_values()
         self.llm = LLMClient(config.llm_engine_url)
-        self.graph_search = get_graph_search(config)
-
         self.miner_config = MinerConfig().load_and_get_config_values()
 
-    async def discovery(self, synapse: protocol.Discovery ) -> protocol.Discovery:
+    async def health_check(self, synapse: protocol.HealthCheck) -> protocol.HealthCheck:
+        logger.info("Health check received")
+        synapse.output = [{
+            "network": self.config.network,
+            "hotkey": self.wallet.hotkey.ss58_address,
+            "uid": self.uid,
+        }]
+        return synapse
+
+    async def discovery(self, synapse: protocol.Discovery) -> protocol.Discovery:
         try:
-            start_block, last_block = self.graph_search.get_min_max_block_height_cache()
-            balance_model_last_block = self.balance_search.get_latest_block_number()
+            discovery = self.llm.discovery_v1(network=self.config.network)
+            if discovery is None:
+                logger.error("Failed to query for discovery")
+                synapse.output = None
+                return synapse
+
             synapse.output = protocol.DiscoveryOutput(
                 metadata=protocol.DiscoveryMetadata(
                     network=self.config.network,
                 ),
-                start_block_height=start_block,
-                block_height=last_block,
-                balance_model_last_block=balance_model_last_block,
+                start_block_height=discovery['funds_flow_model_start_block'],
+                block_height=discovery['funds_flow_model_ast_block'],
+                balance_model_last_block=discovery['balance_model_last_block'],
             )
             logger.info("Serving miner discovery output",
-                            output = {
-                                'metadata' : {
-                                    'network': synapse.output.metadata.network,
-                                },
-                                'start_block_height': synapse.output.start_block_height,
-                                'block_height': synapse.output.block_height,
-                                'balance_model_last_block': synapse.output.balance_model_last_block,
-                                'version': synapse.output.version})
+                        output={
+                            'metadata': {
+                                'network': synapse.output.metadata.network,
+                            },
+                            'start_block_height': synapse.output.start_block_height,
+                            'block_height': synapse.output.block_height,
+                            'balance_model_last_block': synapse.output.balance_model_last_block,
+                            'version': synapse.output.version})
+
         except Exception as e:
-            logger.error('error', error = traceback.format_exc())
+            logger.error('error', error=traceback.format_exc())
             synapse.output = None
+
         return synapse
 
-    async def challenge(self, synapse: protocol.Challenge ) -> protocol.Challenge:
+    async def challenge(self, synapse: protocol.Challenge) -> protocol.Challenge:
         try:
-            logger.info("challenge recieved", synapse = {'version' : synapse.version, 'in_total_amount' : synapse.in_total_amount, 'out_total_amount' : synapse.out_total_amount, 'tx_id_last_4_chars' : synapse.tx_id_last_4_chars, 'checksum' : synapse.checksum, 'output' : synapse.output})
+            logger.info("challenge received", synapse={'version': synapse.version,
+                                                       'in_total_amount': synapse.in_total_amount,
+                                                       'out_total_amount': synapse.out_total_amount,
+                                                       'tx_id_last_4_chars': synapse.tx_id_last_4_chars,
+                                                       'checksum': synapse.checksum,
+                                                       'output': synapse.output})
 
             if self.config.network == NETWORK_BITCOIN:
-                synapse.output = self.graph_search.solve_challenge(
-                    in_total_amount=synapse.in_total_amount,
-                    out_total_amount=synapse.out_total_amount,
-                    tx_id_last_4_chars=synapse.tx_id_last_4_chars
-                )
+                challenge_output = self.llm.challenge_utxo_v1(network=self.config.network,
+                                                              in_total_amount=synapse.in_total_amount,
+                                                              out_total_amount=synapse.out_total_amount,
+                                                              tx_id_last_4_chars=synapse.tx_id_last_4_chars)
+                if challenge_output is None:
+                    logger.error("Failed to query for challenge")
+                    synapse.output = None
+                else:
+                    synapse.output = challenge_output['output']
+
             if self.config.network == NETWORK_ETHEREUM:
-                synapse.output = self.graph_search.solve_challenge(
-                    checksum=synapse.checksum,
-                )
+                challenge_output = self.llm.challenge_evm_v1(network=self.config.network, checksum=synapse.checksum)
+                if challenge_output is None:
+                    synapse.output = None
+                else:
+                    synapse.output = challenge_output['output']
 
             logger.info(f"Serving miner challenge", output = f"{synapse.output}")
 
@@ -199,32 +223,36 @@ class Miner(BaseMinerNeuron):
                 logger.error("Invalid benchmark query", query = synapse.query)
                 synapse.output = None
             else:
-                result = self.graph_search.execute_benchmark_query(cypher_query=synapse.query)
-                synapse.output = result[0]
+                result = self.llm.benchmark_v1(network=self.config.network, query=synapse.query)
+                if result is None:
+                    synapse.output = None
+                    logger.error("Failed to query for benchmark")
+                else:
+                    synapse.output = result['output']
 
             logger.info(f"Serving miner benchmark output", output = f"{synapse.output}")
         except Exception as e:
             logger.error('error', error = traceback.format_exc())
         return synapse
 
-    async def llm_query(self, synapse: protocol.LlmQuery ) -> protocol.LlmQuery:
+    async def llm_query(self, synapse: protocol.LlmQuery) -> protocol.LlmQuery:
         logger.info(f"llm query received: {synapse}")
-        synapse.output = {}
-
-        query = self.llm.query(synapse.messages)
-
-        if query is None:
-            synapse.output = QueryOutput(error=LLM_ERROR_GENERAL_RESPONSE_FAILED, interpreted_result=protocol.LLM_ERROR_MESSAGES[LLM_CLIENT_ERROR])
-        elif query['error'] is not None:
-            synapse.output = QueryOutput(error=query['error'], interpreted_result=query['interpreted_result'])
+        query_output = self.llm.llm_query_v1(synapse.messages)
+        if query_output is None:
+            logger.error("Failed to query for llm query")
+            synapse.output = [QueryOutput(type="text", error=LLM_ERROR_GENERAL_RESPONSE_FAILED, interpreted_result=LLM_ERROR_MESSAGES[LLM_CLIENT_ERROR])]
         else:
-            synapse.output = QueryOutput(result=query['result'],
-                                     error=query['error'],
-                                     interpreted_result=query['interpreted_result'])
+            for query_output_item in query_output:
+                query_output_item['miner_hotkey'] = self.wallet.hotkey.ss58_address
 
-        logger.info(f"Serving miner llm query output: {synapse.output}")
+            synapse.output = query_output
+            logger.info(f"Serving miner llm query output: {synapse.output}")
+
         return synapse
-    
+
+    async def health_check_blacklist(self, synapse: protocol.HealthCheck) -> typing.Tuple[bool, str]:
+        return blacklist.base_blacklist(self, synapse=synapse)
+
     async def discovery_blacklist(self, synapse: protocol.Discovery) -> typing.Tuple[bool, str]:
         return blacklist.discovery_blacklist(self, synapse=synapse)
 
@@ -236,20 +264,20 @@ class Miner(BaseMinerNeuron):
  
     async def llm_query_blacklist(self, synapse: protocol.LlmQuery) -> typing.Tuple[bool, str]:
         return blacklist.base_blacklist(self, synapse=synapse)
-    
-    async def generic_llm_query_blacklist(self, synapse: protocol.GenericLlmQuery) -> typing.Tuple[bool, str]:
-        return blacklist.base_blacklist(self, synapse=synapse)
-    
+
     def base_priority(self, synapse: bt.Synapse) -> float:
         caller_uid = self.metagraph.hotkeys.index(
             synapse.dendrite.hotkey
         ) 
-        prirority = float(
+        priority = float(
             self.metagraph.S[caller_uid]
         )
-        logger.trace("Prioritizing hotkey", hotkey = synapse.dendrite.hotkey, priority = prirority)
-        return prirority
-    
+        logger.trace("Prioritizing hotkey", hotkey=synapse.dendrite.hotkey, priority=priority)
+        return priority
+
+    async def health_check_priority(self, synapse: protocol.HealthCheck) -> float:
+        return self.base_priority(synapse=synapse)
+
     async def discovery_priority(self, synapse: protocol.Discovery) -> float:
         return self.base_priority(synapse=synapse)
 
@@ -260,9 +288,6 @@ class Miner(BaseMinerNeuron):
         return self.base_priority(synapse=synapse)
 
     async def benchmark_priority(self, synapse: protocol.Benchmark) -> float:
-        return self.base_priority(synapse=synapse)
-    
-    async def generic_llm_query_priority(self, synapse: protocol.GenericLlmQuery) -> float:
         return self.base_priority(synapse=synapse)
 
     def resync_metagraph(self):
@@ -277,48 +302,12 @@ class Miner(BaseMinerNeuron):
     def send_metadata(self):
         store_miner_metadata(self)
 
-def wait_for_blocks_sync():
-        is_synced=False
 
-        config = Miner.get_config()
-        if not config.wait_for_sync:
-            logger.info(f"Skipping graph sync.")
-            return is_synced
-        
-        miner_config = MinerConfig().load_and_get_config_values()
-        
-        delta = miner_config.get_blockchain_sync_delta(config.network)
-        logger.info(f"Waiting for graph model to sync with blockchain.")
-        while not is_synced:
-            try:
-                graph_indexer = get_graph_indexer(config)
-                node = NodeFactory.create_node(config.network)
-
-                latest_block_height = node.get_current_block_height()
-                current_block_height = graph_indexer.get_latest_block_number()
-                delta = latest_block_height - current_block_height
-                if delta < 100:
-                    is_synced = True
-                    logger.success(f"Graph model is synced with blockchain.")
-                else:
-                    logger.info(f"Graph Sync", current_block_height = current_block_height, latest_block_height = latest_block_height)
-                    time.sleep(bt.__blocktime__ * 12)
-            except Exception as e:
-                logger.error('error', error = traceback.format_exc())
-                time.sleep(bt.__blocktime__ * 12)
-                logger.info(f"Failed to connect with graph database. Retrying...")
-                continue
-        return is_synced
-
-
-# This is the main function, which runs the miner.
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
-
-    wait_for_blocks_sync()
     with Miner() as miner:
         while True:
             logger.info(f"Miner running")
-            time.sleep(bt.__blocktime__*2)
+            time.sleep(bt.__blocktime__*10)
 
