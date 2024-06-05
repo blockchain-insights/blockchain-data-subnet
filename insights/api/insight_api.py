@@ -45,7 +45,8 @@ class APIServer:
 
             # Calculate the average reward for each uid across non-zero values.
             # Replace any NaN values with 0.
-            raw_weights = np.linalg.norm(self.scores, p=1, dim=0)
+            norm = np.linalg.norm(self.scores, ord=1, axis=-1, keepdims=True)
+            raw_weights = self.scores / norm
 
             # Process the raw weights to final_weights via subtensor limitations.
             (
