@@ -232,7 +232,8 @@ class BaseValidatorNeuron(BaseNeuron):
 
         # Calculate the average reward for each uid across non-zero values.
         # Replace any NaN values with 0.
-        raw_weights = np.linalg.norm(self.scores, ord=1, axis=0, keepdims=True)
+        norm = np.linalg.norm(self.scores, ord=1, axis=-1, keepdims=True)
+        raw_weights = self.scores / norm
 
         # Process the raw weights to final_weights via subtensor limitations.
         (
@@ -334,7 +335,7 @@ class BaseValidatorNeuron(BaseNeuron):
 
         # Check if `uids` is already a tensor and clone it to avoid the warning.
         if isinstance(uids, np.ndarray):
-            uids_tensor = uids.clone().detach()
+            uids_tensor = uids.copy()
         else:
             uids_tensor = np.array(uids)
 
