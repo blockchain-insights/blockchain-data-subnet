@@ -16,7 +16,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 import time
 
-from starlette.responses import JSONResponse
 from starlette.status import HTTP_403_FORBIDDEN
 
 import insights
@@ -209,7 +208,7 @@ class APIServer:
             "network": "bitcoin",
             "prompt": "Return 3 transactions outgoing from my address bc1q4s8yps9my6hun2tpd5ke5xmvgdnxcm2qspnp9r"
         })) -> ChatMessageResponse:
-            if self.api_keys is not None:
+            if self.api_keys:
                 api_key_validator = self.get_api_key_validator()
                 await api_key_validator(request)
 
@@ -282,7 +281,7 @@ class APIServer:
             "prompt": "Return 3 transactions outgoing from my address bc1q4s8yps9my6hun2tpd5ke5xmvgdnxcm2qspnp9r",
             "miner_hotkey": "5EExDvawjGyszzxF8ygvNqkM1w5M4hA82ydBjhx4cY2ut2yr"
         })) -> ChatMessageResponse:
-            if self.api_keys is not None:
+            if self.api_keys:
                 api_key_validator = self.get_api_key_validator()
                 await api_key_validator(request)
 
@@ -332,10 +331,10 @@ class APIServer:
 
     def get_api_key_validator(self):
         async def validator(request: Request):
-            if self.api_keys is not None:
+            if self.api_keys:
                 api_key = request.headers.get("x-api-key")
                 if not api_key or not any(api_key in keys for keys in self.api_keys):
-                    return JSONResponse(status_code=HTTP_403_FORBIDDEN, content={"detail": "Forbidden"})
+                    raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Forbidden")
         return validator
         
     def start(self):
