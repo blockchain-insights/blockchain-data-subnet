@@ -113,7 +113,7 @@ def store_validator_metadata(self):
     except bt.errors.MetadataError as e:
         logger.warning("Skipping storing validator metadata", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
     except Exception as e:
-        logger.warning(f"Skipping storing validator metadata, error: {e}")
+        logger.warning(f"Skipping storing validator metadata,", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
 def get_miners_metadata(config, metagraph):
     def get_commitment(netuid: int, uid: int, block: Optional[int] = None) -> str:

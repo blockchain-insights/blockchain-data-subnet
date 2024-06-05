@@ -3,6 +3,7 @@ from collections import Counter
 from random import randint
 from insights import protocol
 from neurons import logger
+import numpy as np
 
 
 class BenchmarkValidator:

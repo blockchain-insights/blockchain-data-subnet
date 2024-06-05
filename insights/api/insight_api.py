@@ -130,8 +130,8 @@ class APIServer:
             rewards = np.nan_to_num(rewards, 0)
 
         # Check if `uids` is already a tensor and clone it to avoid the warning.
-        if isinstance(uids, np.array):
-            uids_tensor = uids.clone().detach()
+        if isinstance(uids, np.ndarray):
+            uids_tensor = uids.copy()
         else:
             uids_tensor = np.array(uids)
 
