@@ -36,8 +36,8 @@ class BenchmarkValidator:
                         try:
                             filtered_result = [response_output for _, _, response_output in benchmark_results]
                             most_common_result, _ = Counter(filtered_result).most_common(1)[0]
-                            for uid_value, response_time, result in benchmark_results:
-                                results[uid_value] = (response_time, result == most_common_result)
+                            for uid_value, response_time, result, ip, port in benchmark_results:
+                                results[uid_value] = (response_time, result == most_common_result, group_info['group_idx'], ip, port)
                         except Exception as e:
                             logger.error("Run benchmark failed", error=traceback.format_exc())
 
@@ -73,7 +73,7 @@ class BenchmarkValidator:
 
             response_time = benchmark_response.dendrite.process_time
             logger.info("Run benchmark", hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, uid=uid_value)
-            return uid_value, response_time, benchmark_response.output
+            return uid_value, response_time, benchmark_response.output, response.axon.ip, response.axon.port
         except Exception as e:
             logger.error("Run benchmark failed", error=traceback.format_exc())
             return None, None, None
@@ -109,6 +109,7 @@ class ResponseProcessor:
                 new_groups.setdefault(network, {})[i] = {
                     'common_start': min_start,
                     'common_end': min_end,
+                    'group_idx': i,
                     'responses': [resp for resp in items[i]]
                 }
 
