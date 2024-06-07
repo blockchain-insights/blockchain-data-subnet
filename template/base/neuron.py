@@ -98,7 +98,7 @@ class BaseNeuron(ABC):
             return newconfig
 
         whitelist_config_keys = {'alpha', 'api_port', ('logging', 'logging_dir'), ('logging', 'record_log'), 'netuid', 
-                                 ('subtensor', 'chain_endpoint'), ('subtensor', 'network'), 'timeout', 'api_timeout', 'top_rate', 'wallet'}
+                                 ('subtensor', 'chain_endpoint'), ('subtensor', 'network'), 'timeout', 'top_rate', 'wallet'}
 
         json_config = json.loads(json.dumps(self.config, indent = 2))
         config_out = filter(json_config, whitelist_config_keys)
