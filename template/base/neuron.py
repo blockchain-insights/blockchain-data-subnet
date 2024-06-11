@@ -94,7 +94,8 @@ class BaseNeuron(ABC):
         def filter(config, allowlist):
             newconfig = {}
             for item in allowlist:
-                _copy(newconfig, config, item)
+                if item in config:
+                    _copy(newconfig, config, item)
             return newconfig
 
         whitelist_config_keys = {'alpha', 'api_port', ('logging', 'logging_dir'), ('logging', 'record_log'), 'netuid', 
