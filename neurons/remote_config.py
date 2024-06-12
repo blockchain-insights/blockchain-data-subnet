@@ -155,6 +155,7 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_cluster_size = 32
         self.benchmark_query_chunk_size = 5
         self.benchmark_query_diff = 10000
+        self.sample_size = 256
 
         self.version = None
         self.version_update = True
@@ -186,6 +187,7 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_cluster_size = self.get_config_value('benchmark_cluster_size', 1)
         self.benchmark_query_chunk_size = self.get_config_value('benchmark_query_chunk_size', 5)
         self.benchmark_query_diff = self.get_config_value('benchmark_query_diff', 10000)
+        self.sample_size = self.get_config_value('sample_size', 256)
 
         self.version_update = self.get_config_value('version_update', True)
         self.version = self.get_config_value('version', insights.__version__)
