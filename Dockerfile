@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10
 
 WORKDIR /blockchain-data-subnet
 COPY requirements.txt requirements.txt
