@@ -128,7 +128,7 @@ class Validator(BaseValidatorNeuron):
         }
         super(Validator, self).__init__(config)
         self.sync_validator()
-        self.uid_batch_generator = get_uids_batch(self, self.config.neuron.sample_size)
+        self.uid_batch_generator = get_uids_batch(self, self.validator_config.sample_size)
         self.miner_uptime_manager = MinerUptimeManager(db_url=self.config.db_connection_string)
         self.benchmark_validator = BenchmarkValidator(self.dendrite, self.validator_config)
         if config.enable_api:
@@ -308,7 +308,7 @@ class Validator(BaseValidatorNeuron):
 
             uids = next(self.uid_batch_generator, None)
             if uids is None:
-                self.uid_batch_generator = get_uids_batch(self, self.config.neuron.sample_size)
+                self.uid_batch_generator = get_uids_batch(self, self.validator_config.sample_size)
                 uids = next(self.uid_batch_generator, None)
 
             axons = [self.metagraph.axons[uid] for uid in uids]

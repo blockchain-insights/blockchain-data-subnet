@@ -158,6 +158,7 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_cluster_size = 32
         self.benchmark_query_chunk_size = 5
         self.benchmark_query_diff = 10000
+        self.sample_size = 256
 
         self.version = None
         self.version_update = True
@@ -196,6 +197,7 @@ class ValidatorConfig(RemoteConfig):
         self.blockchain_importance = self.get_config_value('blockchain_importance', {"bitcoin": 0.9, "doge": 0.1})
         self.blockchain_recency_weight = self.get_config_value('blockchain_recency_weight',  {"bitcoin": 2, "doge": 2})
         self.is_grace_period = self.get_config_value('is_grace_period', False)
+        self.sample_size = self.get_config_value('sample_size', 256)
 
         return self
 
