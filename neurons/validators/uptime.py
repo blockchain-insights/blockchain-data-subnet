@@ -1,6 +1,8 @@
 import traceback
 from contextlib import contextmanager
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean, inspect, \
+    MetaData, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinload, subqueryload, joinedload
 from datetime import datetime, timedelta
@@ -28,10 +30,57 @@ class Downtimes(Base):
 class MinerUptimeManager:
     def __init__(self, db_url='sqlite:///miners.db'):
         self.engine = create_engine(db_url)
+
+        if not self.compare_schemas(self.engine):
+            with self.engine.connect() as conn:
+                inspector = inspect(self.engine)
+                table_names = inspector.get_table_names()
+                for table_name in table_names:
+                    try:
+                        conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+                        conn.commit()
+                    except ProgrammingError as e:
+                        print(f"Failed to drop table {table_name}: {e}")
+
         Base.metadata.create_all(self.engine)
         self.session_factory = sessionmaker(bind=self.engine)
         self.Session = scoped_session(self.session_factory)
-        self.immunity_period = 0
+        self.immunity_period = 8000 * 12
+
+    def compare_schemas(self, engine):
+        # Reflect the database schema
+        metadata = MetaData()
+        metadata.reflect(bind=engine)
+
+        existing_tables = set(metadata.tables.keys())
+        model_tables = set(Base.metadata.tables.keys())
+
+        # Compare table names
+        if existing_tables != model_tables:
+            return False
+
+        inspector = inspect(engine)
+
+        for table_name in existing_tables.intersection(model_tables):
+            existing_columns = set(c['name'] for c in inspector.get_columns(table_name))
+            model_columns = set(c.name for c in Base.metadata.tables[table_name].columns)
+
+            # Compare columns
+            if existing_columns != model_columns:
+                return False
+
+            # Add more detailed comparison logic if needed
+            existing_constraints = {c['name']: c for c in inspector.get_unique_constraints(table_name)}
+            model_constraints = {c.name: c for c in Base.metadata.tables[table_name].constraints if isinstance(c, UniqueConstraint)}
+
+            if set(existing_constraints.keys()) != set(model_constraints.keys()):
+                return False
+
+            for name in existing_constraints.keys():
+                if existing_constraints[name]['column_names'] != list(model_constraints[name].columns.keys()):
+                    return False
+
+        return True
 
 
     @contextmanager
@@ -100,7 +149,7 @@ class MinerUptimeManager:
                     return 0  # No miner found for the UID and hotkey provided
 
                 active_period_end = datetime.utcnow()
-                active_period_start = miner.uptime_start + timedelta(seconds = self.immunity_period)
+                active_period_start = miner.uptime_start + timedelta(seconds=self.immunity_period)
 
                 result = {}
 
