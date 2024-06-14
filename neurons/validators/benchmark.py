@@ -66,7 +66,7 @@ class BenchmarkValidator:
             output = response.output
             benchmark_response = self.dendrite.query(
                 response.axon,
-                protocol.Benchmark(network=output.metadata.network, query=benchmark_query),
+                protocol.Benchmark(network=output.metadata.network, query=benchmark_query, query_type=query_type),
                 deserialize=False,
                 timeout=self.validator_config.benchmark_timeout,
             )
