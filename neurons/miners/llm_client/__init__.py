@@ -72,11 +72,11 @@ class LLMClient:
             logger.error(f"Unexpected error: {e}")
         return None
 
-    def benchmark_v1(self, network: str, query: str) -> GenericOutput | None:
+    def benchmark_v1(self, network: str, query: str, query_type: str) -> GenericOutput | None:
         try:
             url = f"{self.base_url}/v1/benchmark/{network}"
-            params = {'query': query}
-            response = requests.get(url,params, timeout=30)
+            params = {'query': query, 'query_type': query_type}
+            response = requests.get(url, params, timeout=30)
             response.raise_for_status()
             return response.json()
         except requests.ConnectionError as e:
