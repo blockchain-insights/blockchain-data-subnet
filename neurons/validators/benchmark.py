@@ -20,7 +20,11 @@ class BenchmarkValidator:
 
             for network, main_group in grouped_responses.items():
                 for label, group_info in main_group.items():
-                    benchmark_query_script = self.validator_config.get_benchmark_query_script(network).strip()
+                    query_type = np.random.choice(['funds_flow', 'balance'])
+                    if query_type == 'funds_flow':
+                        benchmark_query_script = self.validator_config.get_benchmark_cypher_query_script(network).strip()
+                    else:
+                        benchmark_query_script = self.validator_config.get_benchmark_sql_query_script(network).strip()
                     benchmark_query_script_vars = {
                         'network': network,
                         'start_block': group_info['common_start'],
