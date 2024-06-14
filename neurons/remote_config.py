@@ -133,8 +133,7 @@ class MinerConfig(RemoteConfig):
         value = self.get_config_composite_value(f'benchmark_cypher_query_regex.{network}', "UNWIND range\\((\\d+), (\\d+)\\) AS block_height MATCH \\(p:Transaction\\) WHERE p.block_height = block_height RETURN SUM\\(p.(\\w+)\\+(\\d+)\\)$")
         return value
     def get_benchmark_sql_query_regex(self, network):
-        value = self.get_config_composite_value(f'benchmark_sql_query_regex.{network}', "^select \* from balance_changes where ([a-zA-Z0-9_]+) between (\d+) and (\d+)( or ([a-zA-Z0-9_]+) between (\d+) and (\d+))?$")
-        return value
+        value = self.get_config_composite_value(f'benchmark_sql_query_regex.{network}', "^SELECT ([a-zA-Z0-9_]+) FROM balance_changes WHERE ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+)( OR ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+))*$")
 
 
 
