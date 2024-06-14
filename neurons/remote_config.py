@@ -213,8 +213,8 @@ class ValidatorConfig(RemoteConfig):
     def get_blockchain_recency_weight(self, network):
         return self.get_config_composite_value(f'blockchain_recency_weight.{network}', 2)
 
-    def get_benchmark_query_script(self, network):
-        return self.get_config_composite_value(f'benchmark_query_script.{network}', """
+    def get_benchmark_cypher_query_script(self, network):
+        return self.get_config_composite_value(f'benchmark_cypher_query_script.{network}', """
             import random
             def build_query(network, start_block, end_block, diff = 10000):
                 mid_point = start_block + (end_block - start_block) // 2
@@ -223,4 +223,12 @@ class ValidatorConfig(RemoteConfig):
             query = build_query(network, start_block, end_block)
             """)
 
-
+    def get_benchmark_sql_query_script(self, network):
+        return self.get_config_composite_value(f'benchmark_sql_query_script.{network}', """
+            import random
+            def build_query(network, start_block, end_block, diff = 10000):
+                mid_point = start_block + (end_block - start_block) // 2
+                block_num = random.randint(mid_point, end_block - diff)
+                return f"SELECT * from balance_changes WHERE block BETWEEN '{block_num}' AND '{block_num + diff}';"
+            query = build_query(network, start_block, end_block)
+            """)
