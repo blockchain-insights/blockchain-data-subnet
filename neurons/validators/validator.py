@@ -175,9 +175,11 @@ class Validator(BaseValidatorNeuron):
                 bt.logging.info("Reward failed", miner_hotkey=hotkey, reason="status_code_invalid", score=float(score))
                 return score
             if not is_discovery_response_valid(response):
+                self.miner_uptime_manager.down(uid_value, hotkey)
                 bt.logging.info("Reward failed", miner_hotkey=hotkey, reason="invalid_response", score=0)
                 return 0
             if not self.is_miner_metadata_valid(response):
+                self.miner_uptime_manager.down(uid_value, hotkey)
                 bt.logging.info("Reward failed", miner_hotkey=hotkey, reason="metadata_invalid", score=0)
                 return 0
 
@@ -198,17 +200,20 @@ class Validator(BaseValidatorNeuron):
 
             cross_validation_result, _ = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height)
             if cross_validation_result is None or not cross_validation_result:
+                self.miner_uptime_manager.down(uid_value, hotkey)
                 bt.logging.info("Reward failed", miner_hotkey=hotkey, reason="cross_validation_failed", score=0)
                 return 0
 
             benchmark_result = benchmarks_result.get(uid_value)
             if benchmark_result is None:
                 score = self.metagraph.T[uid]/4
+                self.miner_uptime_manager.down(uid_value, hotkey)
                 bt.logging.info("Reward failed", miner_hotkey=hotkey, reason="benchmark_timeout", score=float(score))
                 return score
 
             response_time, benchmark_is_valid = benchmark_result
             if not benchmark_is_valid:
+                self.miner_uptime_manager.down(uid_value, hotkey)
                 bt.logging.info("Reward failed", miner_hotkey=hotkey, reason="benchmark_failed", score=0)
                 return 0
 
