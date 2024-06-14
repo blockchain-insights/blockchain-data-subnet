@@ -136,9 +136,8 @@ class APIServer:
 
         # Compute forward pass rewards, assumes uids are mutually exclusive.
         # shape: [ metagraph.n ]
-        scattered_rewards: np.float32 = self.scores.scatter(
-            0, uids_tensor, rewards
-        )
+        scattered_rewards: np.float32 = self.scores.copy()
+        np.put(scattered_rewards, uids_tensor, rewards)
         logger.debug(f"Scattered rewards: {rewards}")
 
         # Update scores with rewards produced by this step.
