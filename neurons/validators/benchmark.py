@@ -32,7 +32,7 @@ class BenchmarkValidator:
                         'diff': self.validator_config.benchmark_query_diff - randint(0, 100),
                     }
                     responses = group_info['responses']
-                    exec(benchmark_query_script, benchmark_query_script_vars)
+                    exec(benchmark_query_script, benchmark_query_script_vars, query_type)
                     benchmark_query = benchmark_query_script_vars['query']
                     benchmark_results = self.execute_benchmarks(responses, benchmark_query)
 
@@ -50,17 +50,17 @@ class BenchmarkValidator:
             logger.error("Run benchmark failed", error=traceback.format_exc())
             return {}
 
-    def execute_benchmarks(self, responses, benchmark_query):
+    def execute_benchmarks(self, responses, benchmark_query, query_type):
         results = []
         for response, uid in responses:
-            result = self.run_benchmark(response, uid, benchmark_query)
+            result = self.run_benchmark(response, uid, benchmark_query, query_type)
             results.append(result)
 
         filtered_run_results = [result for result in results if result[2] is not None]
         logger.info("Executing benchmark", responses=len(responses), results=len(filtered_run_results), benchmark_query=benchmark_query)
         return filtered_run_results
 
-    def run_benchmark(self, response, uid, benchmark_query="RETURN 1"):
+    def run_benchmark(self, response, uid, benchmark_query="RETURN 1", query_type):
         try:
             uid_value = int(uid) if isinstance(uid, np.ndarray) and uid.size == 1 else int(uid)
             output = response.output
