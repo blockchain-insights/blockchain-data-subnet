@@ -29,6 +29,7 @@ class BenchmarkValidator:
                         'network': network,
                         'start_block': group_info['common_start'],
                         'end_block': group_info['common_end'],
+                        'balance_end': group_info['balance_end'],
                         'diff': self.validator_config.benchmark_query_diff - randint(0, 100),
                     }
                     responses = group_info['responses']
@@ -110,9 +111,11 @@ class ResponseProcessor:
             for i in range(len(items)):
                 min_start = min(resp.output.start_block_height for resp, _ in items[i])
                 min_end = min(resp.output.block_height for resp, _ in items[i])
+                balance_end = min(resp.output.balance_model_last_block for resp, _ in items[i])
                 new_groups.setdefault(network, {})[i] = {
                     'common_start': min_start,
                     'common_end': min_end,
+                    'balance_end': balance_end,
                     'responses': [resp for resp in items[i]]
                 }
 
