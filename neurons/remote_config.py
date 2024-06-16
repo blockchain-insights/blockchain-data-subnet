@@ -102,7 +102,7 @@ class MinerConfig(RemoteConfig):
         self.is_grace_period = False
         self.set_weights = True
         self.set_weights_frequency = 6011
-        self.store_metadata_frequency = 6000
+        self.store_metadata_frequency = 100
         self.query_restricted_keywords = ""
 
     def load_and_get_config_values(self):
@@ -121,7 +121,7 @@ class MinerConfig(RemoteConfig):
         # Set_weights, send metadata
         self.set_weights = self.get_config_value('set_weights', True)
         self.set_weights_frequency = self.get_config_value('set_weights_frequency', 6011)
-        self.store_metadata_frequency = self.get_config_value('store_metadata_frequency', 6000)
+        self.store_metadata_frequency = self.get_config_value('store_metadata_frequency', 100)
         self.query_restricted_keywords = self.get_config_value('benchmark_restricted_keywords', ['CREATE', 'SET', 'DELETE', 'DETACH', 'REMOVE', 'MERGE', 'CREATE INDEX', 'DROP INDEX', 'CREATE CONSTRAINT', 'DROP CONSTRAINT'])
 
         return self

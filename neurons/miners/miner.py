@@ -294,7 +294,10 @@ class Miner(BaseMinerNeuron):
         self.miner_config = MinerConfig().load_and_get_config_values()       
         super(Miner, self).resync_metagraph()
 
-    def should_send_metadata(self):        
+    def should_send_metadata(self):
+        if self.last_message_send == 0:
+            return True
+
         return (
             self.block - self.last_message_send
         ) > self.miner_config.store_metadata_frequency

@@ -19,6 +19,7 @@
 
 
 import copy
+import time
 import numpy as np
 import asyncio
 import argparse
@@ -143,23 +144,20 @@ class BaseValidatorNeuron(BaseNeuron):
         self.sync()
 
         logger.info(f"Validator starting", block = self.block)
+        previous_block = self.block
 
         # This loop maintains the validator's operations until intentionally stopped.
         try:
             while True:
-                logger.info('step', step = self.step, block = self.block)
-
-                # Run multiple forwards concurrently.
-                self.loop.run_until_complete(self.concurrent_forward())
-
-                # Check if we should exit.
+                if self.block - previous_block >= 10:
+                    logger.info('step', step=self.step, block=self.block)
+                    self.loop.run_until_complete(self.concurrent_forward())
+                    self.sync()
+                    previous_block = self.block
                 if self.should_exit:
                     break
-
-                # Sync metagraph and potentially set weights.
-                self.sync()
-
                 self.step += 1
+                time.sleep(bt.__blocktime__)
 
         # If someone intentionally stops the validator, it'll safely terminate operations.
         except KeyboardInterrupt:
@@ -232,7 +230,7 @@ class BaseValidatorNeuron(BaseNeuron):
 
         # Calculate the average reward for each uid across non-zero values.
         # Replace any NaN values with 0.
-        norm = np.linalg.norm(self.scores, ord=1, axis=-1, keepdims=True)
+        norm = np.linalg.norm(self.scores, ord=1, axis=-1, keepdims=True) + np.finfo(np.float32).eps
         raw_weights = self.scores / norm
 
         # Process the raw weights to final_weights via subtensor limitations.

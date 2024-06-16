@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict
 import bittensor as bt
 from protocols.llm_engine import LlmMessage, QueryOutput
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # protocol version
 VERSION = 5
@@ -14,11 +14,12 @@ class DiscoveryMetadata(BaseModel):
 
 
 class DiscoveryOutput(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     metadata: DiscoveryMetadata = None
     block_height: int = None
     start_block_height: int = None
     balance_model_last_block: int = None
-    run_id: str = None
     version: Optional[int] = VERSION
 
 
@@ -32,28 +33,12 @@ class HealthCheck(BaseSynapse):
     def deserialize(self):
         return self.output
 
+
 class Discovery(BaseSynapse):
-    output: DiscoveryOutput = None
+    output: Optional[DiscoveryOutput] = None
                         
     def deserialize(self):
         return self
-
-
-class Query(BaseSynapse):
-    network: str = None
-    type: str = None
-
-    # search query
-    target: str = None
-    where: Optional[Dict] = None
-    limit: Optional[int] = None
-    skip: Optional[int] = 0
-
-    # output
-    output: Optional[QueryOutput] = None
-
-    def deserialize(self) -> Dict:
-        return self.output
 
 
 class Benchmark(BaseSynapse):
@@ -63,13 +48,14 @@ class Benchmark(BaseSynapse):
     # output
     output: Optional[float] = None
 
-    def deserialize(self) -> Dict:
+    def deserialize(self) -> Optional[float]:
         return self.output
 
 
 class Challenge(BaseSynapse):
-    model_type: str # model type
+    model_config = ConfigDict(protected_namespaces=())
 
+    model_type: str # model type
     # For BTC funds flow model
     in_total_amount: Optional[int] = None
     out_total_amount: Optional[int] = None
@@ -97,5 +83,5 @@ class LlmQuery(BaseSynapse):
     # output
     output: Optional[List[QueryOutput]] = None
 
-    def deserialize(self) -> str:
+    def deserialize(self) -> Optional[List[QueryOutput]]:
         return self.output

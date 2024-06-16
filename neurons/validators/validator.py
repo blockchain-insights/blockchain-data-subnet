@@ -91,13 +91,14 @@ class Validator(BaseValidatorNeuron):
                     yaml.safe_dump(config, f)
 
         def _copy(newconfig, config, allow):
-            if(isinstance(allow, str)):
+            if isinstance(allow, str):
                 newconfig[allow] = config[allow]
-            elif(isinstance(allow, tuple)):
-                if(len(allow) == 1):
+            elif isinstance(allow, tuple):
+                if len(allow) == 1:
                     newconfig[allow[0]] = config[allow[0]]
                 else:
-                    if(newconfig.get(allow[0]) == None): newconfig[allow[0]] = {}
+                    if newconfig.get(allow[0]) == None:
+                        newconfig[allow[0]] = {}
                     _copy(newconfig[allow[0]], config[allow[0]], allow[1:])
 
         def filter(config, allowlist):
@@ -139,7 +140,7 @@ class Validator(BaseValidatorNeuron):
                 metagraph=self.metagraph
             )
         immunity_period = self.subtensor.immunity_period(self.config.netuid)
-        bt.logging.info("Immunity period", immunity_period = immunity_period)
+        logger.info("Immunity period", immunity_period=immunity_period)
         self.miner_uptime_manager.immunity_period = immunity_period
 
 
@@ -349,7 +350,6 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Forward failed", reason="no_valid_responses")
         except Exception as e:
             logger.error("Forward failed", reason="exception", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
-        finally: pass
 
     def sync_validator(self):
         self.metadata = Metadata.build(self.metagraph, self.config)

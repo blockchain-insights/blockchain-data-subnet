@@ -1,5 +1,8 @@
 import json
+import os
 import sys
+
+from dotenv import load_dotenv
 from loguru import logger
 import bittensor as bt
 import logging
@@ -29,8 +32,13 @@ def custom_log_formatter(record):
     """Custom log formatter"""
     return "<level>{message}</level>\n"
 
-logger = logger.patch(patching)
-logger.remove(0)
-logger.add(sys.stdout, format=custom_log_formatter)
 
-bt.logging._logger.setLevel(logging.CRITICAL)  # disable btlogging
+load_dotenv()
+
+
+if not os.environ.get("DISABLE_JSON_LOGS"):
+    logger = logger.patch(patching)
+    logger.remove(0)
+    logger.add(sys.stdout, format=custom_log_formatter)
+
+    bt.logging._logger.setLevel(logging.CRITICAL)  # disable btlogging

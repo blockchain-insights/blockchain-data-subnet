@@ -204,10 +204,10 @@ class APIServer:
             return response
 
         @self.app.post("/v1/api/text_query", summary="Processes chat message requests and returns a response from a randomly selected miner", tags=["v1"])
-        async def get_response(request: Request, query: ChatMessageRequest = Body(..., example={
+        async def get_response(request: Request, query: ChatMessageRequest = Body(..., examples=[{
             "network": "bitcoin",
             "prompt": "Return 3 transactions outgoing from my address bc1q4s8yps9my6hun2tpd5ke5xmvgdnxcm2qspnp9r"
-        })) -> ChatMessageResponse:
+        }])) -> ChatMessageResponse:
             if self.api_keys:
                 api_key_validator = self.get_api_key_validator()
                 await api_key_validator(request)
@@ -276,11 +276,11 @@ class APIServer:
             return response_object
 
         @self.app.post("/v1/api/text_query/variant", summary="Processes variant chat message requests and returns a response from a specific miner", tags=["v1"])
-        async def get_response_variant(request: Request, query: ChatMessageVariantRequest = Body(..., example={
+        async def get_response_variant(request: Request, query: ChatMessageVariantRequest = Body(..., examples=[{
             "network": "bitcoin",
             "prompt": "Return 3 transactions outgoing from my address bc1q4s8yps9my6hun2tpd5ke5xmvgdnxcm2qspnp9r",
             "miner_hotkey": "5EExDvawjGyszzxF8ygvNqkM1w5M4hA82ydBjhx4cY2ut2yr"
-        })) -> ChatMessageResponse:
+        }])) -> ChatMessageResponse:
             if self.api_keys:
                 api_key_validator = self.get_api_key_validator()
                 await api_key_validator(request)
