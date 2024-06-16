@@ -377,14 +377,6 @@ if __name__ == "__main__":
 
     with Validator() as validator:
         if validator.config.enable_api:
-            if not validator.api_server:
-                validator.api_server = APIServer(
-                    config=validator.config,
-                    wallet=validator.wallet,
-                    subtensor=validator.subtensor,
-                    metagraph=validator.metagraph,
-                    scores=validator.scores
-                )
             api_server_thread = threading.Thread(target=run_api_server, args=(validator.api_server,))
             api_server_thread.start()
 
