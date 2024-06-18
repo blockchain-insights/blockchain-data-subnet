@@ -20,15 +20,20 @@ class BenchmarkValidator:
 
             for network, main_group in grouped_responses.items():
                 for label, group_info in main_group.items():
-                    benchmark_query_script = self.validator_config.get_benchmark_query_script(network).strip()
+                    query_type = np.random.choice(['funds_flow', 'balance'])
+                    if query_type == 'funds_flow':
+                        benchmark_query_script = self.validator_config.get_benchmark_cypher_query_script(network).strip()
+                    else:
+                        benchmark_query_script = self.validator_config.get_benchmark_sql_query_script(network).strip()
                     benchmark_query_script_vars = {
                         'network': network,
                         'start_block': group_info['common_start'],
                         'end_block': group_info['common_end'],
+                        'balance_end': group_info['balance_end'],
                         'diff': self.validator_config.benchmark_query_diff - randint(0, 100),
                     }
                     responses = group_info['responses']
-                    exec(benchmark_query_script, benchmark_query_script_vars)
+                    exec(benchmark_query_script, benchmark_query_script_vars, query_type)
                     benchmark_query = benchmark_query_script_vars['query']
                     benchmark_results = self.execute_benchmarks(responses, benchmark_query)
 
@@ -46,23 +51,23 @@ class BenchmarkValidator:
             logger.error("Run benchmark failed", error=traceback.format_exc())
             return {}
 
-    def execute_benchmarks(self, responses, benchmark_query):
+    def execute_benchmarks(self, responses, benchmark_query, query_type):
         results = []
         for response, uid in responses:
-            result = self.run_benchmark(response, uid, benchmark_query)
+            result = self.run_benchmark(response, uid, benchmark_query, query_type)
             results.append(result)
 
         filtered_run_results = [result for result in results if result[2] is not None]
         logger.info("Executing benchmark", responses=len(responses), results=len(filtered_run_results), benchmark_query=benchmark_query)
         return filtered_run_results
 
-    def run_benchmark(self, response, uid, benchmark_query="RETURN 1"):
+    def run_benchmark(self, response, uid, benchmark_query="RETURN 1", query_type = 'funds_flow'):
         try:
             uid_value = int(uid) if isinstance(uid, np.ndarray) and uid.size == 1 else int(uid)
             output = response.output
             benchmark_response = self.dendrite.query(
                 response.axon,
-                protocol.Benchmark(network=output.metadata.network, query=benchmark_query),
+                protocol.Benchmark(network=output.metadata.network, query=benchmark_query, query_type=query_type),
                 deserialize=False,
                 timeout=self.validator_config.benchmark_timeout,
             )
@@ -106,9 +111,11 @@ class ResponseProcessor:
             for i in range(len(items)):
                 min_start = min(resp.output.start_block_height for resp, _ in items[i])
                 min_end = min(resp.output.block_height for resp, _ in items[i])
+                balance_end = min(resp.output.balance_model_last_block for resp, _ in items[i])
                 new_groups.setdefault(network, {})[i] = {
                     'common_start': min_start,
                     'common_end': min_end,
+                    'balance_end': balance_end,
                     'responses': [resp for resp in items[i]]
                 }
 

@@ -216,14 +216,17 @@ class Miner(BaseMinerNeuron):
     async def benchmark(self, synapse: protocol.Benchmark) -> protocol.Benchmark:
         try:
             logger.info(f"Executing benchmark query", query = synapse.query)
-            pattern = self.miner_config.get_benchmark_query_regex(self.config.network)
+            if synapse.query_type == 'funds_flow':
+                pattern = self.miner_config.get_benchmark_cypher_query_regex(self.config.network)
+            elif synapse.query_type == 'balance':
+                pattern = self.miner_config.get_benchmark_sql_query_regex(self.config.network)
             regex = re.compile(pattern)
             match = regex.fullmatch(synapse.query)
             if match is None:
                 logger.error("Invalid benchmark query", query = synapse.query)
                 synapse.output = None
             else:
-                result = self.llm.benchmark_v1(network=self.config.network, query=synapse.query)
+                result = self.llm.benchmark_v1(network=self.config.network, query=synapse.query, query_type = synapse.query_type)
                 if result is None:
                     synapse.output = None
                     logger.error("Failed to query for benchmark")

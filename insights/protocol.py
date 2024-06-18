@@ -44,6 +44,7 @@ class Discovery(BaseSynapse):
 class Benchmark(BaseSynapse):
     network: str = None
     query: str = None
+    query_type: str = None
 
     # output
     output: Optional[float] = None
