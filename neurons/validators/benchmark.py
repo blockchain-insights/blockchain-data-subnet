@@ -67,11 +67,11 @@ class BenchmarkValidator:
             )
 
             if benchmark_response is None or benchmark_response.output is None:
-                bt.logging.info("Run benchmark failed", hotkey=response.axon.hotkey)
+                bt.logging.info("Run benchmark failed", miner_hotkey=response.axon.hotkey)
                 return None, None, None
 
             response_time = benchmark_response.dendrite.process_time
-            bt.logging.info("Run benchmark", hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, uid=uid_value)
+            bt.logging.info("Run benchmark", miner_hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, uid=uid_value)
             return uid_value, response_time, benchmark_response.output
         except Exception as e:
             bt.logging.error("Run benchmark failed", error=traceback.format_exc())

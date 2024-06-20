@@ -36,7 +36,7 @@ def main():
                 result = subprocess.run(["iptables", "-L", "INPUT", "-v", "-n"], capture_output=True, text=True)
                 if entry.ip_address not in result.stdout:
                     subprocess.run(["iptables", "-I", "DOCKER", "1", "-s", entry.ip_address, "-j", "DROP"], check=True)
-                    bt.logging.info("🚫💻 Blocked IP address", ip_address = entry.ip_address, hotkey = entry.hot_key)
+                    bt.logging.info("🚫💻 Blocked IP address", ip_address = entry.ip_address, validator_hotkey = entry.hot_key)
                     needs_refresh = True
                 else:
                     bt.logging.info("ℹ️ IP address already blocked", ip_address = entry.ip_address)

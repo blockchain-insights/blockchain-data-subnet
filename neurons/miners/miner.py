@@ -218,7 +218,7 @@ class Miner(BaseMinerNeuron):
         prirority = float(
             self.metagraph.S[caller_uid]
         )
-        bt.logging.trace("Prioritizing hotkey", hotkey = synapse.dendrite.hotkey, priority = prirority)
+        bt.logging.trace("Prioritizing hotkey", validator_hotkey = synapse.dendrite.hotkey, priority = prirority)
         return prirority
     
     async def block_check_priority(self, synapse: protocol.BlockCheck) -> float:
