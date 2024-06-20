@@ -30,7 +30,7 @@ import json
 import insights
 from insights.api.insight_api import APIServer
 from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE
-from protocols.llm_engine import MODEL_TYPE_BALANCE_TRACKING
+from protocols.llm_engine import MODEL_TYPE_BALANCE_TRACKING, MODEL_TYPE_FUNDS_FLOW
 from protocols.blockchain import NETWORK_BITCOIN
 
 from neurons.remote_config import ValidatorConfig
@@ -248,6 +248,10 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="block_height_invalid", score=0)
                 return 0
 
+            if abs(balance_model_last_block - last_block_height) > 144:
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="models_not_synced", score=0)
+                # return 0 fpr debugging
+
             result, average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)
             if not result:
                 logger.info("Ping Test failed", miner_hotkey=hotkey, reason="ping_test_failed")
@@ -260,33 +264,50 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="cross_validation_failed", score=0)
                 return 0
 
-            benchmark_result = benchmarks_result.get(uid_value)
-            if benchmark_result is None:
+            funds_flow_benchmark_result = benchmarks_result.get(uid_value)[MODEL_TYPE_FUNDS_FLOW]
+            if funds_flow_benchmark_result is None:
                 score = self.metagraph.T[uid]/4
                 self.miner_uptime_manager.down(uid_value, hotkey)
-                logger.info("Reward failed", miner_hotkey=hotkey, reason="benchmark_timeout", score=float(score))
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="funds_flow_benchmark_timeout", score=float(score))
                 return score
 
-            response_time, benchmark_is_valid = benchmark_result
-            if not benchmark_is_valid:
+            funds_flow_response_time, funds_flow_benchmark_is_valid = funds_flow_benchmark_result
+            if not funds_flow_benchmark_is_valid:
                 self.miner_uptime_manager.down(uid_value, hotkey)
-                logger.info("Reward failed", miner_hotkey=hotkey, reason="benchmark_failed", score=0)
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="funds_flow_benchmark_failed", score=0)
                 return 0
 
-            response_time = response_time - average_ping_time
+            balance_tracking_benchmark_result = benchmarks_result.get(uid_value)[MODEL_TYPE_BALANCE_TRACKING]
+            if balance_tracking_benchmark_result is None:
+                score = self.metagraph.T[uid]/4
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="balance_tracking_benchmark_timeout", score=float(score))
+                return score
+
+            balance_tracking_response_time, balance_tracking_benchmark_is_valid = balance_tracking_benchmark_result
+            if not balance_tracking_benchmark_is_valid:
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="balance_tracking_benchmark_failed", score=0)
+                return 0
+
+            funds_flow_response_time = funds_flow_response_time - average_ping_time
+            balance_tracking_response_time = balance_tracking_response_time - average_ping_time
+
             self.miner_uptime_manager.up(uid_value, hotkey)
             uptime_score = self.miner_uptime_manager.get_uptime_scores(hotkey)
+            process_time = funds_flow_response_time + balance_tracking_response_time
+            worst_end_block_height = min(self.metadata.worst_funds_flow_end_block_height, self.metadata.worst_balance_tracking_end_block_height)
 
             score = self.scorer.calculate_score(
                 hotkey,
                 network,
-                response_time,
+                process_time,
                 start_block_height,
                 last_block_height,
                 self.block_height_cache[network],
                 self.metadata.network_distribution,
                 uptime_score['average'],
-                self.metadata.worst_end_block_height,
+                worst_end_block_height
             )
 
             return score
@@ -299,9 +320,17 @@ class Validator(BaseValidatorNeuron):
         min_time_response = self.validator_config.benchmark_timeout
         for item, response in zip(benchmarks_result.values(), responses):
             average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)[1]
-            max_time_response = max(max_time_response, item[0] - average_ping_time)
-            min_time_response = min(min_time_response, item[0] - average_ping_time)
-        if(max_time_response == min_time_response): max_time_response += 0.1
+            f_max_time_response = max(max_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
+            f_min_time_response = min(min_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
+
+            b_max_time_response = max(max_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
+            b_min_time_response = min(min_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
+
+            max_time_response = f_max_time_response + b_max_time_response
+            min_time_response = f_min_time_response + b_min_time_response
+
+        if max_time_response == min_time_response:
+            max_time_response += 0.1
         return min_time_response, max_time_response
     
     async def forward(self):
@@ -329,10 +358,7 @@ class Validator(BaseValidatorNeuron):
             responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
             benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
 
-            min_time, max_time = self.calculate_min_max_time(benchmarks_result, responses)
-            self.scorer.config.min_time = min_time
-            self.scorer.config.max_time = max_time
-   
+            self.update_scorer_config(benchmarks_result, responses)
             self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
             rewards = [
@@ -350,6 +376,11 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Forward failed", reason="no_valid_responses")
         except Exception as e:
             logger.error("Forward failed", reason="exception", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+
+    def update_scorer_config(self, benchmarks_result, responses):
+        min_time, max_time = self.calculate_min_max_time(benchmarks_result, responses)
+        self.scorer.processing_times['min_time'] = min_time
+        self.scorer.processing_times['max_time'] = max_time
 
     def sync_validator(self):
         self.metadata = Metadata.build(self.metagraph, self.config)

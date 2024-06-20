@@ -17,7 +17,11 @@ def is_discovery_response_valid(discovery_output: Discovery) -> bool:
         return False
     if output.start_block_height == 0:
         return False
-    
+    if output.balance_model_last_block is None:
+        return False
+    if output.balance_model_last_block < 0:
+        return False
+
     metadata: DiscoveryMetadata = output.metadata
     
     if metadata.network is None or metadata.network not in get_networks():

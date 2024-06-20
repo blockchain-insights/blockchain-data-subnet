@@ -5,10 +5,12 @@ from neurons import logger
 class Scorer:
     def __init__(self, config: ValidatorConfig):
         self.config = config
+        self.processing_times = { 'min_time': 1, 'max_time': 10 }
 
     def calculate_score(self, hotkey, network,  process_time, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height, miner_distribution, uptime_avg, worst_end_block_height):
         process_time_score = self.calculate_process_time_score(process_time, self.config.benchmark_timeout)
         block_height_score = self.calculate_block_height_score(network, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height)
+
         block_height_recency_score = self.calculate_block_height_recency_score(indexed_end_block_height, blockchain_last_block_height, worst_end_block_height)
         blockchain_score = self.calculate_blockchain_weight(network, miner_distribution)
         uptime_score = self.calculate_uptime_score(uptime_avg)
@@ -68,10 +70,13 @@ class Scorer:
         return max(0.1, min(normalized_score, 1))  # Ensure the score is between 0.1 and 1
 
     def calculate_process_time_score(self, process_time, discovery_timeout):
+        process_time = min(process_time, discovery_timeout)
+        factor = (process_time / discovery_timeout) ** (1/3)
+        process_time_score = max(0, 1 - factor)
         # Define the best and worst process times
-        best_time = self.config.min_time 
-        worst_time = self.config.max_time
-        
+        best_time = self.processing_times['min_time']
+        worst_time = self.processing_times['max_time']
+
         # Use the new performance scoring method
         process_time_score = self.get_performance_score(process_time, best_time, worst_time, discovery_timeout)
         return process_time_score

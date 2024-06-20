@@ -32,19 +32,21 @@ class Metadata:
         for neuron in metagraph.neurons:
             miner_metadata = miners_metadata.get(neuron.hotkey)
 
-            network_id, version, end_block_height = None, None, None
+            network_id, version, funds_flow_end_block_height, balance_tracking_end_block_height = None, None, None, None
             if miner_metadata:
                 network_id = miner_metadata.n
                 version = miner_metadata.cv
-                end_block_height = miner_metadata.lb
+                funds_flow_end_block_height = miner_metadata.lb
+                balance_tracking_end_block_height = miner_metadata.bl
 
             data = dict(
-                hotkey = neuron.hotkey,
-                coldkey = neuron.coldkey,
-                ip = neuron.axon_info.ip,
-                network = get_network_by_id(network_id),
-                version = version,
-                end_block_height = end_block_height
+                hotkey=neuron.hotkey,
+                coldkey=neuron.coldkey,
+                ip=neuron.axon_info.ip,
+                network=get_network_by_id(network_id),
+                version=version,
+                funds_flow_end_block_height=funds_flow_end_block_height,
+                balance_tracking_end_block_height=balance_tracking_end_block_height
             )
             hotkeys_metadata.append(data)
         return hotkeys_metadata        
@@ -76,6 +78,11 @@ class Metadata:
         return self.distributions['coldkey']
     
     @property
-    def worst_end_block_height(self):
-        hotkey =  min(filter(lambda x: x.get('end_block_height') is not None, self.hotkeys), key=lambda x: x['end_block_height'])
-        return hotkey['end_block_height']
+    def worst_funds_flow_end_block_height(self):
+        hotkey =  min(filter(lambda x: x.get('funds_flow_end_block_height') is not None, self.hotkeys), key=lambda x: x['funds_flow_end_block_height'])
+        return hotkey['funds_flow_end_block_height']
+
+    @property
+    def worst_balance_tracking_end_block_height(self):
+        hotkey =  min(filter(lambda x: x.get('balance_tracking_end_block_height') is not None, self.hotkeys), key=lambda x: x['balance_tracking_end_block_height'])
+        return hotkey['balance_tracking_end_block_height']

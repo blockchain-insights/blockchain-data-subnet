@@ -129,11 +129,11 @@ class MinerConfig(RemoteConfig):
     def get_blockchain_sync_delta(self, network):
         self.get_config_composite_value('blockchain_sync_delta', {'bitcoin': 100})
 
-    def get_benchmark_cypher_query_regex(self, network):
-        value = self.get_config_composite_value(f'benchmark_cypher_query_regex.{network}', "UNWIND range\\((\\d+), (\\d+)\\) AS block_height MATCH \\(p:Transaction\\) WHERE p.block_height = block_height RETURN SUM\\(p.(\\w+)\\+(\\d+)\\)$")
+    def get_benchmark_funds_flow_regex(self, network):
+        value = self.get_config_composite_value(f'benchmark_funds_flow_regex.{network}', "UNWIND range\\((\\d+), (\\d+)\\) AS block_height MATCH \\(p:Transaction\\) WHERE p.block_height = block_height RETURN SUM\\(p.(\\w+)\\+(\\d+)\\)$")
         return value
-    def get_benchmark_sql_query_regex(self, network):
-        value = self.get_config_composite_value(f'benchmark_sql_query_regex.{network}', "^SELECT ([a-zA-Z0-9_]+) FROM balance_changes WHERE ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+)( OR ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+))*$")
+    def get_benchmark_balance_regex(self, network):
+        value = self.get_config_composite_value(f'benchmark_balance_regex.{network}', "^SELECT ([a-zA-Z0-9_]+) FROM balance_changes WHERE ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+)( OR ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+))*$")
         return value
 
 
@@ -216,16 +216,16 @@ class ValidatorConfig(RemoteConfig):
     def get_blockchain_recency_weight(self, network):
         return self.get_config_composite_value(f'blockchain_recency_weight.{network}', 2)
 
-    def get_benchmark_cypher_query_script(self, network):
-        return self.get_config_composite_value(f'benchmark_cypher_query_script.{network}', """import random
+    def get_benchmark_funds_flow_query_script(self, network):
+        return self.get_config_composite_value(f'benchmark_funds_flow_query_script.{network}', """import random
 def build_query(network, start_block, end_block, diff = 10000):
     mid_point = start_block + (end_block - start_block) // 2
     block_num = random.randint(mid_point, end_block - diff)
     return f"UNWIND range({block_num}, {block_num + diff}) AS block_height MATCH (p:Transaction) WHERE p.block_height = block_height RETURN SUM(p.block_height);"
 query = build_query(network, start_block, end_block)""")
 
-    def get_benchmark_sql_query_script(self, network):
-        return self.get_config_composite_value(f'benchmark_sql_query_script.{network}', """import random
+    def get_benchmark_balance_script(self, network):
+        return self.get_config_composite_value(f'benchmark_balance_query_script.{network}', """import random
 def build_query(network, start_block, end_block, diff = 10000):
     mid_point = start_block + (end_block - start_block) // 2
     block_num = random.randint(mid_point, end_block - diff)

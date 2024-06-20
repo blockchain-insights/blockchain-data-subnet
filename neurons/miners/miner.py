@@ -9,7 +9,7 @@ import bittensor as bt
 import yaml
 from protocols.blockchain import NETWORK_BITCOIN, NETWORK_ETHEREUM
 from protocols.llm_engine import LlmMessage, QueryOutput, LLM_ERROR_TYPE_NOT_SUPPORTED, LLM_ERROR_MESSAGES, \
-    LLM_ERROR_GENERAL_RESPONSE_FAILED, LLM_CLIENT_ERROR
+    LLM_ERROR_GENERAL_RESPONSE_FAILED, LLM_CLIENT_ERROR, MODEL_TYPE_BALANCE_TRACKING, MODEL_TYPE_FUNDS_FLOW
 
 from insights import protocol
 from neurons import logger
@@ -215,27 +215,32 @@ class Miner(BaseMinerNeuron):
 
     async def benchmark(self, synapse: protocol.Benchmark) -> protocol.Benchmark:
         try:
-            logger.info(f"Executing benchmark query", query = synapse.query)
-            if synapse.query_type == 'funds_flow':
-                pattern = self.miner_config.get_benchmark_cypher_query_regex(self.config.network)
-            elif synapse.query_type == 'balance':
-                pattern = self.miner_config.get_benchmark_sql_query_regex(self.config.network)
+            logger.info(f"Executing benchmark query", query=synapse.query)
+            if synapse.query_type == MODEL_TYPE_FUNDS_FLOW:
+                pattern = self.miner_config.get_benchmark_funds_flow_regex(self.config.network)
+            elif synapse.query_type == MODEL_TYPE_BALANCE_TRACKING:
+                pattern = self.miner_config.get_benchmark_balance_regex(self.config.network)
+            else:
+                synapse.output = None
+                logger.error("Unsupported benchmark query type", query_type=synapse.query_type)
+                return synapse
+
             regex = re.compile(pattern)
             match = regex.fullmatch(synapse.query)
             if match is None:
-                logger.error("Invalid benchmark query", query = synapse.query)
+                logger.error("Invalid benchmark query", query=synapse.query)
                 synapse.output = None
             else:
-                result = self.llm.benchmark_v1(network=self.config.network, query=synapse.query, query_type = synapse.query_type)
+                result = self.llm.benchmark_v1(network=self.config.network, query=synapse.query, query_type=synapse.query_type)
                 if result is None:
                     synapse.output = None
                     logger.error("Failed to query for benchmark")
                 else:
                     synapse.output = result['output']
 
-            logger.info(f"Serving miner benchmark output", output = f"{synapse.output}")
+            logger.info(f"Serving miner benchmark output", output=f"{synapse.output}")
         except Exception as e:
-            logger.error('error', error = traceback.format_exc())
+            logger.error('error', error=traceback.format_exc())
         return synapse
 
     async def llm_query(self, synapse: protocol.LlmQuery) -> protocol.LlmQuery:
