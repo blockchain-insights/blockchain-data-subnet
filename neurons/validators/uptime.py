@@ -111,7 +111,7 @@ class MinerUptimeManager:
                     if last_downtime:
                         last_downtime.end_time = datetime.utcnow()
         except Exception as e:
-            logger.error("Error occurred during uptime end", hotkey=hotkey, error=traceback.format_exc())
+            logger.error("Error occurred during uptime end", miner_hotkey=hotkey, error=traceback.format_exc())
 
     def down(self, uid, hotkey):
         try:
@@ -126,7 +126,7 @@ class MinerUptimeManager:
                         new_downtime = Downtimes(miner_id=miner.id, start_time=datetime.utcnow(), end_time=None)
                         session.add(new_downtime)
         except Exception as e:
-            logger.error("Error occurred during downtime start", hotkey=hotkey, error=traceback.format_exc())
+            logger.error("Error occurred during downtime start", miner_hotkey=hotkey, error=traceback.format_exc())
 
     def get_miner(self, hotkey):
         try:
@@ -137,7 +137,7 @@ class MinerUptimeManager:
                     return miner
                 return None
         except Exception as e:
-            logger.error("Error occurred during miner retrieval", hotkey=hotkey, error=traceback.format_exc())
+            logger.error("Error occurred during miner retrieval", miner_hotkey=hotkey, error=traceback.format_exc())
             return None
 
     def calculate_uptimes(self, hotkey, period_seconds):
@@ -172,7 +172,7 @@ class MinerUptimeManager:
                 return result
 
         except Exception as e:
-            logger.error("Error occurred during uptime calculation", hotkey=miner.hotkey, error=traceback.format_exc())
+            logger.error("Error occurred during uptime calculation", miner_hotkey=miner.hotkey, error=traceback.format_exc())
             raise e
 
     def get_uptime_scores(self, hotkey):

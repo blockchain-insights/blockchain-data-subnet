@@ -40,7 +40,7 @@ def discovery_blacklist(self, synapse: protocol.Discovery) -> typing.Tuple[bool,
         return True, f"Blacklisted a non registered hotkey's request from {hotkey}"
     
     stake = self.metagraph.neurons[uid].stake.tao
-    logger.debug("Stake of hotkey", miner_hotkey = hotkey, stake = stake)
+    logger.debug("Stake of hotkey", validator_hotkey = hotkey, stake = stake)
 
     if stake < self.miner_config.stake_threshold and self.config.mode == 'prod':
         return True, f"Denied due to low stake: {stake}<{self.miner_config.stake_threshold}"
@@ -84,7 +84,7 @@ def base_blacklist(self, synapse: bt.Synapse) -> typing.Tuple[bool, str]:
 
     hotkey = synapse.dendrite.hotkey
     if hotkey not in self.metagraph.hotkeys:
-        logger.trace(f"Blacklisting unrecognized hotkey", miner_hotkey = hotkey)
+        logger.trace(f"Blacklisting unrecognized hotkey", validator_hotkey = hotkey)
         return True, "Unrecognized hotkey"
     if not self.miner_config.is_grace_period and synapse.version != protocol.VERSION:
         return True, f"Blacklisted: Protocol Version differs miner_version={protocol.VERSION} validator_version={synapse.version} for hotkey: {hotkey}"
