@@ -250,7 +250,7 @@ class Validator(BaseValidatorNeuron):
 
             if abs(balance_model_last_block - last_block_height) > 144:
                 logger.info("Reward failed", miner_hotkey=hotkey, reason="models_not_synced", score=0)
-                # return 0 fpr debugging
+                return 0
 
             result, average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)
             if not result:
