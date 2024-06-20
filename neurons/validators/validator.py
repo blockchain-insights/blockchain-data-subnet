@@ -28,7 +28,6 @@ import yaml
 import json
 
 import insights
-from insights.api.insight_api import APIServer
 from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE
 from protocols.llm_engine import MODEL_TYPE_BALANCE_TRACKING, MODEL_TYPE_FUNDS_FLOW
 from protocols.blockchain import NETWORK_BITCOIN
@@ -132,13 +131,6 @@ class Validator(BaseValidatorNeuron):
         self.uid_batch_generator = get_uids_batch(self, self.validator_config.sample_size)
         self.miner_uptime_manager = MinerUptimeManager(db_url=self.config.db_connection_string)
         self.benchmark_validator = BenchmarkValidator(self.dendrite, self.validator_config)
-        if config.enable_api:
-            self.api_server = APIServer(
-                config=self.config,
-                wallet=self.wallet,
-                subtensor=self.subtensor,
-                metagraph=self.metagraph
-            )
         immunity_period = self.subtensor.immunity_period(self.config.netuid)
         logger.info("Immunity period", immunity_period=immunity_period)
         self.miner_uptime_manager.immunity_period = immunity_period
@@ -336,10 +328,6 @@ class Validator(BaseValidatorNeuron):
     async def forward(self):
         try:
             self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
-            # Update the subtensor, metagraph, scores of api_server as the one of validator is updated.
-            self.api_server.subtensor = self.subtensor
-            self.api_server.metagraph = self.metagraph
-            self.api_server.scores = self.scores
 
             uids = next(self.uid_batch_generator, None)
             if uids is None:
@@ -398,19 +386,12 @@ class Validator(BaseValidatorNeuron):
     def send_metadata(self):
         store_validator_metadata(self)
 
-def run_api_server(api_server):
-    api_server.start()
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
     load_dotenv()
 
     with Validator() as validator:
-        if validator.config.enable_api:
-            api_server_thread = threading.Thread(target=run_api_server, args=(validator.api_server,))
-            api_server_thread.start()
-
         while True:
             logger.info("Validator running")
             time.sleep(bt.__blocktime__*10)
