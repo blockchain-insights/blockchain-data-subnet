@@ -37,7 +37,7 @@ class MinerUptimeManager:
                 table_names = inspector.get_table_names()
                 for table_name in table_names:
                     try:
-                        conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+                        conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
                         conn.commit()
                     except ProgrammingError as e:
                         logger.error(f"Failed to drop table {table_name}: {e}")
