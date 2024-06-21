@@ -8,7 +8,7 @@
 
 ---
 
-## Unlocking the Power of Blockchain Data <!-- omit in toc -->
+##    Unlocking the Power of Blockchain Data <!-- omit in toc -->
 
 [Discord](https://discord.gg/bittensor) • [Subnet](https://taostats.io/subnets/netuid-15/) • [Research](https://bittensor.com/whitepaper)
 </div>
