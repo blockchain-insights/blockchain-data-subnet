@@ -165,6 +165,7 @@ class ValidatorConfig(RemoteConfig):
 
         self.version = None
         self.version_update = True
+        self.balance_model_diff = 849008
 
         self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://subnet-15-cfg.s3.fr-par.scw.cloud/validator3.json')
 
@@ -201,6 +202,8 @@ class ValidatorConfig(RemoteConfig):
         self.blockchain_recency_weight = self.get_config_value('blockchain_recency_weight',  {"bitcoin": 2, "doge": 2})
         self.is_grace_period = self.get_config_value('is_grace_period', False)
         self.sample_size = self.get_config_value('sample_size', 256)
+
+        self.balance_model_diff = self.get_config_value('balance_model_diff', 849008)
 
         return self
 

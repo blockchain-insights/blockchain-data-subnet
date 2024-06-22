@@ -105,7 +105,6 @@ class BenchmarkQueryRegex(unittest.TestCase):
 
         self.assertIsNotNone(match)  # Updated assertion to check if the match is not None
 
-
     def test_balance(self):
         function_code = inspect.getsource(build_balance_query) + "\nquery = build_balance_query(network, start_block, balance_end, 1)"
         with open('balance_query_script.json', 'w') as file:

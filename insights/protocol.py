@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import bittensor as bt
 from protocols.llm_engine import LlmMessage, QueryOutput
 from pydantic import BaseModel, ConfigDict
@@ -60,7 +60,7 @@ class Challenge(BaseSynapse):
     # For BTC funds flow model
     in_total_amount: Optional[int] = None
     out_total_amount: Optional[int] = None
-    tx_id_last_4_chars: Optional[str] = None
+    tx_id_last_6_chars: Optional[str] = None
     
     # For BTC balance tracking model
     block_height: Optional[int] = None
@@ -68,7 +68,7 @@ class Challenge(BaseSynapse):
     # Altcoins
     checksum: Optional[str] = None
 
-    output: Optional[str] = None
+    output: Optional[Any] = None
     
     def deserialize(self) -> str:
         return self.output
