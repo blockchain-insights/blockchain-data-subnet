@@ -18,6 +18,7 @@ class MinerMetadata(Metadata):
     bl: Optional[int] #balance_model_last_block_height
     n: Optional[int] #network
     cv: Optional[str] #code_version
+    lv: Optional[str] #lllm engine version
     
     @staticmethod
     def from_compact(compact_str):
@@ -60,6 +61,7 @@ def store_miner_metadata(self):
         start_block = discovery['funds_flow_model_start_block']
         last_block = discovery['funds_flow_model_ast_block']
         balance_model_last_block = discovery['balance_model_last_block']
+        llm_version = discovery['llm_engine_version']
 
         logger.info(f"Storing miner metadata")
 
@@ -68,7 +70,8 @@ def store_miner_metadata(self):
             lb=last_block,
             bl=balance_model_last_block,
             n=get_network_id(self.config.network),
-            cv=insights.__version__
+            cv=insights.__version__,
+            lv=llm_version
         )
         self.subtensor.commit(self.wallet, self.config.netuid, Metadata.to_compact(metadata))
         logger.success(f"Stored miner metadata: {metadata}")
