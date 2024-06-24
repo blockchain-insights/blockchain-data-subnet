@@ -228,7 +228,7 @@ class Miner(BaseMinerNeuron):
             if synapse.query_type == MODEL_TYPE_FUNDS_FLOW:
                 pattern = self.miner_config.get_benchmark_funds_flow_regex(self.config.network)
             elif synapse.query_type == MODEL_TYPE_BALANCE_TRACKING:
-                pattern = self.miner_config.get_benchmark_balance_regex(self.config.network)
+                pattern = self.miner_config.get_benchmark_balance_tracking_regex(self.config.network)
             else:
                 synapse.output = None
                 logger.error("Unsupported benchmark query type", query_type=synapse.query_type)

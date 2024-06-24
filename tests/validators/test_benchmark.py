@@ -107,11 +107,11 @@ class BenchmarkQueryRegex(unittest.TestCase):
 
     def test_balance(self):
         function_code = inspect.getsource(build_balance_query) + "\nquery = build_balance_query(network, start_block, balance_end, 1)"
-        with open('balance_query_script.json', 'w') as file:
+        with open('balance_tracking_query_script.json', 'w') as file:
             json.dump({"code": function_code}, file)
 
         query_script = ""
-        with open('balance_query_script.json', 'r') as file:
+        with open('balance_tracking_query_script.json', 'r') as file:
             data = json.load(file)
             query_script = data['code']
 

@@ -132,8 +132,8 @@ class MinerConfig(RemoteConfig):
     def get_benchmark_funds_flow_regex(self, network):
         value = self.get_config_composite_value(f'benchmark_funds_flow_regex.{network}', "UNWIND range\\((\\d+), (\\d+)\\) AS block_height MATCH \\(p:Transaction\\) WHERE p.block_height = block_height RETURN SUM\\(p.(\\w+)\\+(\\d+)\\)$")
         return value
-    def get_benchmark_balance_regex(self, network):
-        value = self.get_config_composite_value(f'benchmark_balance_regex.{network}', "^SELECT ([a-zA-Z0-9_]+) FROM balance_changes WHERE ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+)( OR ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+))*$")
+    def get_benchmark_balance_tracking_regex(self, network):
+        value = self.get_config_composite_value(f'benchmark_balance_tracking_regex.{network}', "^SELECT ([a-zA-Z0-9_]+) FROM balance_changes WHERE ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+)( OR ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+))*$")
         return value
 
 
@@ -227,8 +227,8 @@ def build_query(network, start_block, end_block, diff = 10000):
     return f"UNWIND range({block_num}, {block_num + diff}) AS block_height MATCH (p:Transaction) WHERE p.block_height = block_height RETURN SUM(p.block_height);"
 query = build_query(network, start_block, end_block)""")
 
-    def get_benchmark_balance_script(self, network):
-        return self.get_config_composite_value(f'benchmark_balance_query_script.{network}', """import random
+    def get_benchmark_balance_tracking_script(self, network):
+        return self.get_config_composite_value(f'benchmark_balance_tracking_query_script.{network}', """import random
 def build_query(network, start_block, end_block, diff = 10000):
     mid_point = start_block + (end_block - start_block) // 2
     block_num = random.randint(mid_point, end_block - diff)

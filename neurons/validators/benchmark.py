@@ -33,7 +33,7 @@ class BenchmarkValidator:
                     responses = group_info['responses']
 
                     self.run_benchmark_type(MODEL_TYPE_FUNDS_FLOW, self.validator_config.get_benchmark_funds_flow_query_script(network).strip(), benchmark_query_script_vars, responses, results)
-                    self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_script(network).strip(), benchmark_query_script_vars, responses, results)
+                    self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_tracking_script(network).strip(), benchmark_query_script_vars, responses, results)
 
             return results
         except Exception as e:
