@@ -60,17 +60,6 @@ class Validator(BaseValidatorNeuron):
         parser.add_argument("--netuid", type=int, default=15, help="The chain subnet uid.")
         parser.add_argument("--dev", action=argparse.BooleanOptionalAction)
 
-        # For API configuration
-        # Subnet Validator and validator API        
-        # You can invoke the API while instantiating the validator.
-        # To run API, it's needed to set `enable_api`, `api_port`, `top_rate`, `timeout`, `user_query_moving_average_alpha` additionally.
-        
-        parser.add_argument("--enable_api", type=bool, default=False, help="Decide whether to launch api or not.")
-        parser.add_argument("--api_port", type=int, default=8001, help="API endpoint port.")
-        parser.add_argument("--timeout", type=int, default=360, help="Timeout.")
-        parser.add_argument("--top_rate", type=float, default=0.80, help="Best selection percentage")
-        parser.add_argument("--user_query_moving_average_alpha", type=float, default=0.0001, help="Moving average alpha for scoring user query miners.")
-
         bt.subtensor.add_args(parser)
         bt.logging.add_args(parser)
         bt.wallet.add_args(parser)
@@ -254,11 +243,11 @@ class Validator(BaseValidatorNeuron):
             hotkey = response.axon.hotkey
 
             if self.block_height_cache[network] - last_block_height < 6:
-                logger.info("Reward failed", miner_hotkey=hotkey, reason="block_height_invalid", score=0)
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="block_height_invalid", score=0, block_height_cache=self.block_height_cache[network], last_block_height=last_block_height)
                 return 0
 
             if abs(balance_model_last_block - last_block_height) > self.validator_config.balance_model_diff:
-                logger.info("Reward failed", miner_hotkey=hotkey, reason="models_not_synced", score=0)
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="models_not_synced", score=0, balance_model_last_block=balance_model_last_block, last_block_height=last_block_height, diff=abs(balance_model_last_block - last_block_height), balance_model_diff=self.validator_config.balance_model_diff)
                 return 0
 
             result, average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)
