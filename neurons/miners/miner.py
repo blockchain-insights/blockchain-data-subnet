@@ -186,6 +186,7 @@ class Miner(BaseMinerNeuron):
                                                        'out_total_amount': synapse.out_total_amount,
                                                        'tx_id_last_6_chars': synapse.tx_id_last_6_chars,
                                                        'checksum': synapse.checksum,
+                                                       'block_height': synapse.block_height,
                                                        'output': synapse.output})
 
             if self.config.network == NETWORK_BITCOIN and synapse.model_type == MODEL_TYPE_FUNDS_FLOW:
