@@ -38,10 +38,27 @@ class LLMClient:
             logger.error(f"Unexpected error: {e}")
         return None
 
-    def challenge_utxo_v1(self, network: str, in_total_amount: int, out_total_amount: int, tx_id_last_4_chars: str) -> GenericOutput | None:
+    def challenge_utxo_funds_flow_v1(self, network: str, in_total_amount: int, out_total_amount: int, tx_id_last_6_chars: str) -> GenericOutput | None:
         try:
-            url = f"{self.base_url}/v1/challenge/{network}"
-            params = {'in_total_amount': in_total_amount, 'out_total_amount': out_total_amount, 'tx_id_last_4_chars': tx_id_last_4_chars}
+            url = f"{self.base_url}/v1/challenge/funds_flow/{network}"
+            params = {'in_total_amount': in_total_amount, 'out_total_amount': out_total_amount, 'tx_id_last_6_chars': tx_id_last_6_chars}
+            response = requests.get(url, params, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.ConnectionError as e:
+            logger.error(f"Connection error: {e}")
+        except requests.Timeout as e:
+            logger.error(f"Request timeout: {e}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to query: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+        return None
+
+    def challenge_utxo_balance_tracking_v1(self, network: str, block_height: int) -> GenericOutput | None:
+        try:
+            url = f"{self.base_url}/v1/challenge/balance_tracking/{network}"
+            params = {'block_height': block_height}
             response = requests.get(url, params, timeout=30)
             response.raise_for_status()
             return response.json()
@@ -72,11 +89,28 @@ class LLMClient:
             logger.error(f"Unexpected error: {e}")
         return None
 
-    def benchmark_v1(self, network: str, query: str) -> GenericOutput | None:
+    def benchmark_funds_flow_v1(self, network: str, query) -> GenericOutput | None:
         try:
-            url = f"{self.base_url}/v1/benchmark/{network}"
-            params = {'query': query}
-            response = requests.get(url,params, timeout=30)
+            url = f"{self.base_url}/v1/benchmark/funds_flow/{network}"
+            params = {'query': query }
+            response = requests.get(url, params, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.ConnectionError as e:
+            logger.error(f"Connection error: {e}")
+        except requests.Timeout as e:
+            logger.error(f"Request timeout: {e}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to query: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+        return None
+
+    def benchmark_balance_tracking_v1(self, network: str, query: str) -> GenericOutput | None:
+        try:
+            url = f"{self.base_url}/v1/benchmark/balance_tracking/{network}"
+            params = {'query': query }
+            response = requests.get(url, params, timeout=30)
             response.raise_for_status()
             return response.json()
         except requests.ConnectionError as e:

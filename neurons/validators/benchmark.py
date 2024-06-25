@@ -1,8 +1,12 @@
 import traceback
 from collections import Counter
 from random import randint
+
+from protocols.llm_engine import MODEL_TYPE_BALANCE_TRACKING, MODEL_TYPE_FUNDS_FLOW
+
 from insights import protocol
 from neurons import logger
+import numpy as np
 
 
 class BenchmarkValidator:
@@ -19,59 +23,66 @@ class BenchmarkValidator:
 
             for network, main_group in grouped_responses.items():
                 for label, group_info in main_group.items():
-                    benchmark_query_script = self.validator_config.get_benchmark_query_script(network).strip()
                     benchmark_query_script_vars = {
                         'network': network,
                         'start_block': group_info['common_start'],
                         'end_block': group_info['common_end'],
+                        'balance_end': group_info['balance_end'],
                         'diff': self.validator_config.benchmark_query_diff - randint(0, 100),
                     }
                     responses = group_info['responses']
-                    exec(benchmark_query_script, benchmark_query_script_vars)
-                    benchmark_query = benchmark_query_script_vars['query']
-                    benchmark_results = self.execute_benchmarks(responses, benchmark_query)
 
-                    if benchmark_results:
-                        try:
-                            filtered_result = [response_output for _, _, response_output in benchmark_results]
-                            most_common_result, _ = Counter(filtered_result).most_common(1)[0]
-                            for uid_value, response_time, result in benchmark_results:
-                                results[uid_value] = (response_time, result == most_common_result)
-                        except Exception as e:
-                            logger.error("Run benchmark failed", error=traceback.format_exc())
+                    self.run_benchmark_type(MODEL_TYPE_FUNDS_FLOW, self.validator_config.get_benchmark_funds_flow_query_script(network).strip(), benchmark_query_script_vars, responses, results)
+                    self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_tracking_script(network).strip(), benchmark_query_script_vars, responses, results)
 
             return results
         except Exception as e:
             logger.error("Run benchmark failed", error=traceback.format_exc())
             return {}
 
-    def execute_benchmarks(self, responses, benchmark_query):
+    def run_benchmark_type(self, benchmark_type, benchmark_query_script, benchmark_query_script_vars, responses, results):
+        exec(benchmark_query_script, benchmark_query_script_vars)
+        benchmark_query = benchmark_query_script_vars['query']
+        benchmark_results = self.execute_benchmarks(responses, benchmark_query, benchmark_type)
+
+        if benchmark_results:
+            try:
+                filtered_result = [response_output for _, _, response_output in benchmark_results]
+                most_common_result, _ = Counter(filtered_result).most_common(1)[0]
+                for uid_value, response_time, result in benchmark_results:
+                    if uid_value not in results:
+                        results[uid_value] = {}
+                    results[uid_value][benchmark_type] = (response_time, result == most_common_result)
+            except Exception as e:
+                logger.error(f"Run {benchmark_type} benchmark failed", error=traceback.format_exc())
+
+    def execute_benchmarks(self, responses, benchmark_query, query_type):
         results = []
         for response, uid in responses:
-            result = self.run_benchmark(response, uid, benchmark_query)
+            result = self.run_benchmark(response, uid, benchmark_query, query_type)
             results.append(result)
 
         filtered_run_results = [result for result in results if result[2] is not None]
         logger.info("Executing benchmark", responses=len(responses), results=len(filtered_run_results), benchmark_query=benchmark_query)
         return filtered_run_results
 
-    def run_benchmark(self, response, uid, benchmark_query="RETURN 1"):
+    def run_benchmark(self, response, uid, benchmark_query="RETURN 1", query_type=MODEL_TYPE_FUNDS_FLOW):
         try:
-            uid_value = uid.item() if uid.numel() == 1 else int(uid.numpy())
+            uid_value = int(uid) if isinstance(uid, np.ndarray) and uid.size == 1 else int(uid)
             output = response.output
             benchmark_response = self.dendrite.query(
                 response.axon,
-                protocol.Benchmark(network=output.metadata.network, query=benchmark_query),
+                protocol.Benchmark(network=output.metadata.network, query=benchmark_query, query_type=query_type),
                 deserialize=False,
                 timeout=self.validator_config.benchmark_timeout,
             )
 
             if benchmark_response is None or benchmark_response.output is None:
-                logger.info("Run benchmark failed", hotkey=response.axon.hotkey)
+                logger.info("Run benchmark failed", miner_hotkey=response.axon.hotkey)
                 return None, None, None
 
             response_time = benchmark_response.dendrite.process_time
-            logger.info("Run benchmark", hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, uid=uid_value)
+            logger.info("Run benchmark", miner_hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, uid=uid_value)
             return uid_value, response_time, benchmark_response.output
         except Exception as e:
             logger.error("Run benchmark failed", error=traceback.format_exc())
@@ -105,9 +116,11 @@ class ResponseProcessor:
             for i in range(len(items)):
                 min_start = min(resp.output.start_block_height for resp, _ in items[i])
                 min_end = min(resp.output.block_height for resp, _ in items[i])
+                balance_end = min(resp.output.balance_model_last_block for resp, _ in items[i])
                 new_groups.setdefault(network, {})[i] = {
                     'common_start': min_start,
                     'common_end': min_end,
+                    'balance_end': balance_end,
                     'responses': [resp for resp in items[i]]
                 }
 

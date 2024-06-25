@@ -9,7 +9,7 @@ class TestChallenge(unittest.TestCase):
 
         node = NodeFactory.create_node(NETWORK_BITCOIN)
 
-        challenge = Challenge(model_type=MODEL_TYPE_FUNDS_FLOW, in_total_amount=203216, out_total_amount=200000, tx_id_last_4_chars="d946")
+        challenge = Challenge(model_type=MODEL_TYPE_FUNDS_FLOW, in_total_amount=203216, out_total_amount=200000, tx_id_last_6_chars="66d946")
         expected_output = "93fa1edce68762615740fd35581fc337d508ca33e682057bed7b395b5d66d946"
         test_output1 = "93fa1edce68762615740fd35581fc337d508ca33e682057bed7b395b5d66d945"
         test_output2 = "83fa1edce68762615740fd35581fc337d508ca33e682057bed7b395b5d66d946"

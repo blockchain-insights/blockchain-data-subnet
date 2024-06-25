@@ -1,0 +1,1 @@
+{"regex": "WITH\\s+block_heights\\s+AS\\s+\\(\\s*SELECT\\s+generate_series\\(\\d+,\\s*\\d+\\)\\s+AS\\s+block\\s+(?:UNION\\s+ALL\\s+SELECT\\s+generate_series\\(\\d+,\\s*\\d+\\)\\s+AS\\s+block\\s+)+\\)\\s+SELECT\\s+SUM\\(\\s*block\\s*\\)\\s+FROM\\s+balance_changes\\s+WHERE\\s+block\\s+IN\\s+\\(SELECT\\s+block\\s+FROM\\s+block_heights\\)"}

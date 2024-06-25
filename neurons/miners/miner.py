@@ -9,7 +9,7 @@ import bittensor as bt
 import yaml
 from protocols.blockchain import NETWORK_BITCOIN, NETWORK_ETHEREUM
 from protocols.llm_engine import LlmMessage, QueryOutput, LLM_ERROR_TYPE_NOT_SUPPORTED, LLM_ERROR_MESSAGES, \
-    LLM_ERROR_GENERAL_RESPONSE_FAILED, LLM_CLIENT_ERROR
+    LLM_ERROR_GENERAL_RESPONSE_FAILED, LLM_CLIENT_ERROR, MODEL_TYPE_BALANCE_TRACKING, MODEL_TYPE_FUNDS_FLOW
 
 from insights import protocol
 from neurons import logger
@@ -184,15 +184,25 @@ class Miner(BaseMinerNeuron):
             logger.info("challenge received", synapse={'version': synapse.version,
                                                        'in_total_amount': synapse.in_total_amount,
                                                        'out_total_amount': synapse.out_total_amount,
-                                                       'tx_id_last_4_chars': synapse.tx_id_last_4_chars,
+                                                       'tx_id_last_6_chars': synapse.tx_id_last_6_chars,
                                                        'checksum': synapse.checksum,
+                                                       'block_height': synapse.block_height,
                                                        'output': synapse.output})
 
-            if self.config.network == NETWORK_BITCOIN:
-                challenge_output = self.llm.challenge_utxo_v1(network=self.config.network,
+            if self.config.network == NETWORK_BITCOIN and synapse.model_type == MODEL_TYPE_FUNDS_FLOW:
+                challenge_output = self.llm.challenge_utxo_funds_flow_v1(network=self.config.network,
                                                               in_total_amount=synapse.in_total_amount,
                                                               out_total_amount=synapse.out_total_amount,
-                                                              tx_id_last_4_chars=synapse.tx_id_last_4_chars)
+                                                              tx_id_last_6_chars=synapse.tx_id_last_6_chars)
+                if challenge_output is None:
+                    logger.error("Failed to query for challenge")
+                    synapse.output = None
+                else:
+                    synapse.output = challenge_output['output']
+
+            elif self.config.network == NETWORK_BITCOIN and synapse.model_type == MODEL_TYPE_BALANCE_TRACKING:
+                challenge_output = self.llm.challenge_utxo_balance_tracking_v1(network=self.config.network,
+                                                                               block_height=synapse.block_height)
                 if challenge_output is None:
                     logger.error("Failed to query for challenge")
                     synapse.output = None
@@ -215,24 +225,36 @@ class Miner(BaseMinerNeuron):
 
     async def benchmark(self, synapse: protocol.Benchmark) -> protocol.Benchmark:
         try:
-            logger.info(f"Executing benchmark query", query = synapse.query)
-            pattern = self.miner_config.get_benchmark_query_regex(self.config.network)
+            logger.info(f"Executing benchmark query", query=synapse.query)
+            if synapse.query_type == MODEL_TYPE_FUNDS_FLOW:
+                pattern = self.miner_config.get_benchmark_funds_flow_regex(self.config.network)
+            elif synapse.query_type == MODEL_TYPE_BALANCE_TRACKING:
+                pattern = self.miner_config.get_benchmark_balance_tracking_regex(self.config.network)
+            else:
+                synapse.output = None
+                logger.error("Unsupported benchmark query type", query_type=synapse.query_type)
+                return synapse
+
             regex = re.compile(pattern)
             match = regex.fullmatch(synapse.query)
             if match is None:
-                logger.error("Invalid benchmark query", query = synapse.query)
+                logger.error("Invalid benchmark query", query=synapse.query)
                 synapse.output = None
             else:
-                result = self.llm.benchmark_v1(network=self.config.network, query=synapse.query)
+                result = None
+                if synapse.query_type == MODEL_TYPE_FUNDS_FLOW:
+                    result = self.llm.benchmark_funds_flow_v1(network=self.config.network, query=synapse.query)
+                elif synapse.query_type == MODEL_TYPE_BALANCE_TRACKING:
+                    result = self.llm.benchmark_balance_tracking_v1(network=self.config.network, query=synapse.query)
                 if result is None:
                     synapse.output = None
                     logger.error("Failed to query for benchmark")
                 else:
                     synapse.output = result['output']
 
-            logger.info(f"Serving miner benchmark output", output = f"{synapse.output}")
+            logger.info(f"Serving miner benchmark output", output=f"{synapse.output}")
         except Exception as e:
-            logger.error('error', error = traceback.format_exc())
+            logger.error('error', error=traceback.format_exc())
         return synapse
 
     async def llm_query(self, synapse: protocol.LlmQuery) -> protocol.LlmQuery:
@@ -272,7 +294,7 @@ class Miner(BaseMinerNeuron):
         priority = float(
             self.metagraph.S[caller_uid]
         )
-        logger.trace("Prioritizing hotkey", hotkey=synapse.dendrite.hotkey, priority=priority)
+        logger.trace("Prioritizing hotkey", validator_hotkey=synapse.dendrite.hotkey, priority=priority)
         return priority
 
     async def health_check_priority(self, synapse: protocol.HealthCheck) -> float:
@@ -294,7 +316,10 @@ class Miner(BaseMinerNeuron):
         self.miner_config = MinerConfig().load_and_get_config_values()       
         super(Miner, self).resync_metagraph()
 
-    def should_send_metadata(self):        
+    def should_send_metadata(self):
+        if self.last_message_send == 0:
+            return True
+
         return (
             self.block - self.last_message_send
         ) > self.miner_config.store_metadata_frequency

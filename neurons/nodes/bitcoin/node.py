@@ -73,7 +73,6 @@ class BitcoinNode(Node):
             indexlogger.error(f"RPC Provider with Error", extra = logger_extra_data(error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args}))
         finally:
             rpc_connection._AuthServiceProxy__conn.close()  # Close the connection
-     
 
     def get_block_by_height(self, block_height):
         rpc_connection = AuthServiceProxy(self.node_rpc_url)
@@ -125,7 +124,7 @@ class BitcoinNode(Node):
             address, amount = self.tx_out_hash_table[txn_id[:3]][(txn_id, vout_id)]
             return address, int(amount)
 
-    def create_challenge(self, start_block_height, last_block_height):
+    def create_funds_flow_challenge(self, start_block_height, last_block_height):
         num_retries = 10 # to prevent infinite loop
         is_valid_block = False
         while num_retries and not is_valid_block:
@@ -152,11 +151,11 @@ class BitcoinNode(Node):
 
             *_, in_total_amount, out_total_amount = self.process_in_memory_txn_for_indexing(tx)
             
-        challenge = Challenge(model_type=MODEL_TYPE_FUNDS_FLOW, in_total_amount=in_total_amount, out_total_amount=out_total_amount, tx_id_last_4_chars=txn_id[-4:])
+        challenge = Challenge(model_type=MODEL_TYPE_FUNDS_FLOW, in_total_amount=in_total_amount, out_total_amount=out_total_amount, tx_id_last_6_chars=txn_id[-6:])
         return challenge, txn_id
 
-    def validate_challenge_response_output(self, challenge: Challenge, response_output):
-        if response_output[-4:] != challenge.tx_id_last_4_chars:
+    def validate_funds_flow_challenge_response_output(self, challenge: Challenge, response_output):
+        if response_output[-6:] != challenge.tx_id_last_6_chars:
             return False
         
         txn_data = self.get_txn_data_by_id(response_output)
@@ -168,7 +167,7 @@ class BitcoinNode(Node):
         *_, in_total_amount, out_total_amount = self.process_in_memory_txn_for_indexing(tx)
         return challenge.in_total_amount == in_total_amount and challenge.out_total_amount == out_total_amount
     
-    def create_balance_challenge(self, block_height):
+    def create_balance_tracking_challenge(self, block_height):
         block = self.get_block_by_height(block_height)
         block_data = parse_block_data(block)
         transactions = block_data.transactions
@@ -192,7 +191,7 @@ class BitcoinNode(Node):
                 balance_changes_by_address[address] += out_amount_by_address[address]
                 
         challenge = Challenge(model_type=MODEL_TYPE_BALANCE_TRACKING, block_height=block_height)
-        return challenge, len(changed_addresses)
+        return challenge, balance_changes_by_address
 
     def get_txn_data_by_id(self, txn_id: str):
         try:
