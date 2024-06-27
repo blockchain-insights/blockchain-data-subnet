@@ -2,6 +2,10 @@ import inspect
 import json
 import re
 import unittest
+from random import random, randint
+from unittest.mock import Mock
+
+from neurons.validators.benchmark import ResponseProcessor
 
 
 def build_funds_flow_query(network, start_block, end_block, diff=1):
@@ -138,6 +142,46 @@ class BenchmarkQueryRegex(unittest.TestCase):
         match = regex.fullmatch(generated_query)
 
         self.assertIsNotNone(match)  # Updated assertion to check if the match is not None
+
+
+class TestResponseProcessor(unittest.TestCase):
+    def setUp(self):
+        self.validator_config = Mock()
+        self.validator_config.benchmark_query_chunk_size = 32
+        self.processor = ResponseProcessor(self.validator_config)
+
+    def generate_ips(self, num_ips):
+        ips = []
+        for _ in range(num_ips):
+            ip = ".".join(map(str, (randint(0, 255) for _ in range(4))))
+            ips.append(ip)
+        return ips
+
+    def test_group_responses(self):
+        # Create mock responses
+        responses = []
+        ips = self.generate_ips(100)
+        for i in range(len(ips)):
+            response = Mock()
+            response.axon.ip = ips[i]
+            response.axon.hotkey = f'hotkey_{i}'
+            response.output.metadata.network = 'bitcoin'
+            response.output.start_block_height = i
+            response.output.block_height = i + 10
+            response.output.balance_model_last_block = i + 20
+            responses.append((response, i))
+
+        # Call the method under test
+        result = self.processor.group_responses(responses)
+
+        # Assert the expected output
+        self.assertEqual(len(result), 1)  # Only one network 'bitcoin'
+        self.assertEqual(len(result['bitcoin']), self.validator_config.benchmark_query_chunk_size)  # 5 groups
+        for i, group_info in result['bitcoin'].items():
+            self.assertEqual(group_info['common_start'], i)
+            self.assertEqual(group_info['common_end'], i + 10)
+            self.assertEqual(group_info['balance_end'], i + 20)
+            self.assertEqual(len(group_info['responses']), 1)  # Each group has 1 response
 
 if __name__ == '__main__':
     unittest.main()

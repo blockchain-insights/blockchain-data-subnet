@@ -191,7 +191,7 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_consensus = self.get_config_value('benchmark_consensus', 0.51)
 
         self.benchmark_timeout = self.get_config_value('benchmark_timeout', 600)
-        self.benchmark_cluster_size = self.get_config_value('benchmark_cluster_size', 1)
+
         self.benchmark_query_chunk_size = self.get_config_value('benchmark_query_chunk_size', 5)
         self.benchmark_query_diff = self.get_config_value('benchmark_query_diff', 10000)
 

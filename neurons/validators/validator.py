@@ -31,8 +31,6 @@ import json
 import insights
 from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE
 from protocols.llm_engine import MODEL_TYPE_BALANCE_TRACKING, MODEL_TYPE_FUNDS_FLOW
-from protocols.blockchain import NETWORK_BITCOIN
-
 from neurons.remote_config import ValidatorConfig
 from neurons.nodes.factory import NodeFactory
 from neurons.storage import store_validator_metadata
@@ -95,8 +93,8 @@ class Validator(BaseValidatorNeuron):
                 _copy(newconfig, config, item)
             return newconfig
 
-        whitelist_config_keys = {'alpha', 'api_port', ('logging', 'logging_dir'), ('logging', 'record_log'), 'netuid', 
-                                ('subtensor', 'chain_endpoint'), ('subtensor', 'network'), 'timeout', 'top_rate', 'wallet'}
+        whitelist_config_keys = {'alpha', ('logging', 'logging_dir'), ('logging', 'record_log'), 'netuid',
+                                ('subtensor', 'chain_endpoint'), ('subtensor', 'network'), 'wallet'}
 
         json_config = json.loads(json.dumps(config, indent = 2))
         config_out = filter(json_config, whitelist_config_keys)
