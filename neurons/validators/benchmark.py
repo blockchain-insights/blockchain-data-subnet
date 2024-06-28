@@ -54,7 +54,7 @@ class BenchmarkValidator:
                         results[uid_value] = {}
                     results[uid_value][benchmark_type] = (response_time, result == most_common_result)
             except Exception as e:
-                logger.error(f"Run {benchmark_type} benchmark failed", error=traceback.format_exc())
+                logger.error(f"Run benchmark failed", benchmark_type = benchmark_type, error=traceback.format_exc())
 
     def execute_benchmarks(self, responses, benchmark_query, query_type):
         results = []
@@ -78,14 +78,14 @@ class BenchmarkValidator:
             )
 
             if benchmark_response is None or benchmark_response.output is None:
-                logger.info("Run benchmark failed", miner_hotkey=response.axon.hotkey)
+                logger.info("Run benchmark failed", miner_hotkey=response.axon.hotkey, miner_uid = uid_value, miner_ip = response.axon.ip, reason = "benchmark timed out")
                 return None, None, None
 
             response_time = benchmark_response.dendrite.process_time
-            logger.info("Run benchmark", miner_hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, uid=uid_value)
+            logger.info("Run benchmark", miner_hotkey=response.axon.hotkey, response_time=response_time, output=benchmark_response.output, miner_uid=uid_value, miner_ip = response.axon.ip)
             return uid_value, response_time, benchmark_response.output
         except Exception as e:
-            logger.error("Run benchmark failed", error=traceback.format_exc())
+            logger.error("Run benchmark failed", error=traceback.format_exc(), reason="exception", miner_hotkey=response.axon.hotkey, miner_uid = uid_value, miner_ip = response.axon.ip)
             return None, None, None
 
 
