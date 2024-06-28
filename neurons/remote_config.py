@@ -7,6 +7,7 @@ import threading
 
 import insights
 
+from neurons import logger
 # Constants for configuration URLs
 
 UPDATE_INTERVAL = 3600  # Time interval for updating configuration in seconds
@@ -61,15 +62,15 @@ class RemoteConfig:
                         json.dump(self.config_cache, file)
 
                     self.last_update_time = current_time
-                    bt.logging.success("Updated config", config_url = self.config_url)
+                    logger.success("Updated config", config_url = self.config_url)
                     break  # Break the loop if successful
                 except requests.exceptions.RequestException as e:
                     retries += 1
-                    bt.logging.error("Attempt failed to update config", retries = retries, config_url = self.config_url, error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+                    logger.error("Attempt failed to update config", retries = retries, config_url = self.config_url, error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
                     if retries < MAX_RETRIES:
                         time.sleep(RETRY_INTERVAL)
                 except Exception as e:
-                    bt.logging.error("Non-retryable error occurred", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+                    logger.error("Non-retryable error occurred", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
                     break
 
     def get_config_composite_value(self, key, default=None):
@@ -128,7 +129,7 @@ class MinerConfig(RemoteConfig):
         self.get_config_composite_value('blockchain_sync_delta', {'bitcoin': 100})
 
     def get_benchmark_query_regex(self, network):
-        value = self.get_config_composite_value(f'benchmark_query_regex.{network}', "UNWIND range\\((\\d+), (\\d+)\\) AS block_height MATCH \\(p:Transaction\\) WHERE p.block_height = block_height RETURN SUM\\(p.(\\w+)\\+(\\d+)\\)$")
+        value = self.get_config_composite_value(f'benchmark_query_regex.{network}', "WITH\\s+(?:range\\(\\d+,\\s*\\d+\\)\\s*\\+\\s*)+range\\(\\d+,\\s*\\d+\\)\\s+AS\\s+block_heights\\s+UNWIND\\s+block_heights\\s+AS\\s+block_height\\s+MATCH\\s+p=\\((sender:Address)\\)-\\[(sent1:SENT)\\]->\\((t:Transaction)\\)-\\[(sent2:SENT)\\]->\\((receiver:Address)\\)\\s+WHERE\\s+t\\.block_height\\s+=\\s+block_height\\s+WITH\\s+project\\(p\\)\\s+AS\\s+subgraph\\s+CALL\\s+pagerank\\.get\\(subgraph\\)\\s+YIELD\\s+node,\\s+rank\\s+RETURN\\s+round\\(rank\\s*\\*\\s*100000\\)\\s*/\\s*100000\\s+AS\\s+roundedRank\\s+ORDER\\s+BY\\s+roundedRank\\s+DESC\\s+LIMIT\\s+1")
         return value
 
 
