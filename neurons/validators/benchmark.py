@@ -28,12 +28,23 @@ class BenchmarkValidator:
                         'start_block': group_info['common_start'],
                         'end_block': group_info['common_end'],
                         'balance_end': group_info['balance_end'],
-                        'diff': self.validator_config.benchmark_query_diff - randint(0, 100),
+                        'diff': self.validator_config.benchmark_funds_flow_query_diff - randint(0, 100),
                     }
                     responses = group_info['responses']
-
                     self.run_benchmark_type(MODEL_TYPE_FUNDS_FLOW, self.validator_config.get_benchmark_funds_flow_query_script(network).strip(), benchmark_query_script_vars, responses, results)
+
+            for network, main_group in grouped_responses.items():
+                for label, group_info in main_group.items():
+                    benchmark_query_script_vars = {
+                        'network': network,
+                        'start_block': group_info['common_start'],
+                        'end_block': group_info['common_end'],
+                        'balance_end': group_info['balance_end'],
+                        'diff': self.validator_config.benchmark_balance_tracking_query_diff - randint(0, 100),
+                    }
+                    responses = group_info['responses']
                     self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_tracking_script(network).strip(), benchmark_query_script_vars, responses, results)
+
 
             return results
         except Exception as e:

@@ -160,7 +160,9 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_timeout = 600
         self.benchmark_cluster_size = 32
         self.benchmark_query_chunk_size = 5
-        self.benchmark_query_diff = 10000
+        self.benchmark_funds_flow_query_diff = 10000
+        self.benchmark_balance_tracking_query_diff = 10000
+        self.balance_tracking_diff = 849008
         self.sample_size = 256
 
         self.version = None
@@ -193,7 +195,9 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_timeout = self.get_config_value('benchmark_timeout', 600)
 
         self.benchmark_query_chunk_size = self.get_config_value('benchmark_query_chunk_size', 5)
-        self.benchmark_query_diff = self.get_config_value('benchmark_query_diff', 10000)
+        self.benchmark_funds_flow_query_diff = self.get_config_value('benchmark_funds_flow_query_diff', 10000)
+        self.benchmark_balance_tracking_query_diff = self.get_config_value('benchmark_balance_tracking_query_diff', 10000)
+        self.balance_tracking_diff = self.get_config_value('balance_tracking_diff', 849008)
 
         self.version_update = self.get_config_value('version_update', True)
         self.version = self.get_config_value('version', insights.__version__)
