@@ -20,22 +20,21 @@ import threading
 import time
 import argparse
 import traceback
+from random import random, randint
 
-import torch
+import numpy as np
 import bittensor as bt
 import os
 import yaml
+import json
 
 import insights
-from insights.api.insight_api import APIServer
-from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE, MODEL_TYPE_BALANCE_TRACKING, \
-    NETWORK_BITCOIN
-
+from insights.protocol import Discovery, DiscoveryOutput, MAX_MINER_INSTANCE
+from protocols.llm_engine import MODEL_TYPE_BALANCE_TRACKING, MODEL_TYPE_FUNDS_FLOW
 from neurons.remote_config import ValidatorConfig
 from neurons.nodes.factory import NodeFactory
 from neurons.storage import store_validator_metadata
 from neurons.validators.benchmark import BenchmarkValidator
-from neurons.validators.challenge_factory.balance_challenge_factory import BalanceChallengeFactory
 from neurons.validators.scoring import Scorer
 from neurons.validators.uptime import MinerUptimeManager
 from neurons.validators.utils.metadata import Metadata
@@ -43,6 +42,7 @@ from neurons.validators.utils.ping import ping
 from neurons.validators.utils.synapse import is_discovery_response_valid
 from neurons.validators.utils.uids import get_uids_batch
 from template.base.validator import BaseValidatorNeuron
+from neurons import logger
 
 
 class Validator(BaseValidatorNeuron):
@@ -58,17 +58,6 @@ class Validator(BaseValidatorNeuron):
         parser.add_argument("--netuid", type=int, default=15, help="The chain subnet uid.")
         parser.add_argument("--dev", action=argparse.BooleanOptionalAction)
 
-        # For API configuration
-        # Subnet Validator and validator API        
-        # You can invoke the API while instantiating the validator.
-        # To run API, it's needed to set `enable_api`, `api_port`, `top_rate`, `timeout`, `user_query_moving_average_alpha` additionally.
-        
-        parser.add_argument("--enable_api", type=bool, default=False, help="Decide whether to launch api or not.")
-        parser.add_argument("--api_port", type=int, default=8001, help="API endpoint port.")
-        parser.add_argument("--timeout", type=int, default=40, help="Timeout.")
-        parser.add_argument("--top_rate", type=float, default=1, help="Best selection percentage")
-        parser.add_argument("--user_query_moving_average_alpha", type=float, default=0.0001, help="Moving average alpha for scoring user query miners.")
-
         bt.subtensor.add_args(parser)
         bt.logging.add_args(parser)
         bt.wallet.add_args(parser)
@@ -83,12 +72,33 @@ class Validator(BaseValidatorNeuron):
                 with open(dev_config_path, 'r') as f:
                     dev_config = yaml.safe_load(f.read())
                 config.update(dev_config)
-                bt.logging.info(f"config updated with {dev_config_path}")
-
             else:
                 with open(dev_config_path, 'w') as f:
                     yaml.safe_dump(config, f)
-                bt.logging.info(f"config stored in {dev_config_path}")
+
+        def _copy(newconfig, config, allow):
+            if isinstance(allow, str):
+                newconfig[allow] = config[allow]
+            elif isinstance(allow, tuple):
+                if len(allow) == 1:
+                    newconfig[allow[0]] = config[allow[0]]
+                else:
+                    if newconfig.get(allow[0]) == None:
+                        newconfig[allow[0]] = {}
+                    _copy(newconfig[allow[0]], config[allow[0]], allow[1:])
+
+        def filter(config, allowlist):
+            newconfig = {}
+            for item in allowlist:
+                _copy(newconfig, config, item)
+            return newconfig
+
+        whitelist_config_keys = {'alpha', ('logging', 'logging_dir'), ('logging', 'record_log'), 'netuid',
+                                ('subtensor', 'chain_endpoint'), ('subtensor', 'network'), 'wallet'}
+
+        json_config = json.loads(json.dumps(config, indent = 2))
+        config_out = filter(json_config, whitelist_config_keys)
+        logger.info('config', config = config_out)
 
         return config
 
@@ -98,31 +108,20 @@ class Validator(BaseValidatorNeuron):
         networks = self.validator_config.get_networks()
         self.nodes = {network : NodeFactory.create_node(network) for network in networks}
         self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in networks}
-        self.challenge_factory = {
-            NETWORK_BITCOIN: {
-                MODEL_TYPE_BALANCE_TRACKING: BalanceChallengeFactory(self.nodes[NETWORK_BITCOIN])
-            }
-        }
+
         super(Validator, self).__init__(config)
         self.sync_validator()
-        self.uid_batch_generator = get_uids_batch(self, self.config.neuron.sample_size)
+        self.uid_batch_generator = get_uids_batch(self, self.validator_config.sample_size)
         self.miner_uptime_manager = MinerUptimeManager(db_url=self.config.db_connection_string)
         self.benchmark_validator = BenchmarkValidator(self.dendrite, self.validator_config)
-        if config.enable_api:
-            self.api_server = APIServer(
-                config=self.config,
-                wallet=self.wallet,
-                subtensor=self.subtensor,
-                metagraph=self.metagraph,
-                scores=self.scores
-            )
+        immunity_period = self.subtensor.immunity_period(self.config.netuid)
+        logger.info("Immunity period", immunity_period=immunity_period)
+        self.miner_uptime_manager.immunity_period = immunity_period
 
-
-    def cross_validate(self, axon, node, challenge_factory, start_block_height, last_block_height, balance_model_last_block):
+    def cross_validate(self, axon, node, start_block_height, last_block_height, balance_model_last_block):
         try:
-            # first, validate funds flow model response
-            challenge, expected_response = node.create_challenge(start_block_height, last_block_height)
-            
+            challenge, expected_response = node.create_funds_flow_challenge(start_block_height, last_block_height)
+
             response = self.dendrite.query(
                 axon,
                 challenge,
@@ -131,51 +130,47 @@ class Validator(BaseValidatorNeuron):
             )
             hotkey = axon.hotkey
             response_time = response.dendrite.process_time
-            bt.logging.info(f"({hotkey=}) Cross validation response time: {response_time}, status_code: {response.axon.status_code}")
 
             if response is not None and response.output is None:
-                bt.logging.debug(f"({hotkey=}) Cross validation failed")
+                logger.info("Cross validation failed", miner_hotkey=hotkey, reason="output", miner_ip = response.axon.ip)
                 return False, 128
 
             if response is None or response.output is None:
-                bt.logging.debug("Cross validation failed")
+                logger.info("Cross validation failed", miner_hotkey=hotkey, reason="empty", miner_ip = response.axon.ip)
                 return False, 128
 
-            # if the miner's response is different from the expected response and validation failed
-            if not response.output == expected_response and not node.validate_challenge_response_output(challenge, response.output):
-                bt.logging.debug(f"({hotkey=}) Cross validation failed: {response.output=}, {expected_response=}")
+            if not response.output == expected_response and not node.validate_funds_flow_challenge_response_output(challenge, response.output):
+                logger.info("Cross validation failed",  miner_hotkey=hotkey, reason="expected_response", response_output=response.output, expected_output=expected_response, miner_ip = response.axon.ip)
                 return False, response_time
 
-            # if the miner's response is different from the expected response and validation failed
-            if not response.output == expected_response and not node.validate_challenge_response_output(challenge, response.output):
-                bt.logging.debug("Cross validation failed")
-                return False, response_time
-
-            # second, validate balance model response
-            """
-            challenge, expected_response = challenge_factory[MODEL_TYPE_BALANCE_TRACKING].get_challenge(balance_model_last_block)
-
+            random_balance_tracking_block = randint(1, balance_model_last_block)
+            challenge, expected_response = node.create_balance_tracking_challenge(random_balance_tracking_block)
             response = self.dendrite.query(
                 axon,
                 challenge,
                 deserialize=False,
-                timeout = self.validator_config.challenge_timeout,
+                timeout=self.validator_config.challenge_timeout,
             )
 
+            if response is not None and response.output is None:
+                logger.info("Cross validation failed", miner_hotkey=hotkey, reason="output", miner_ip = response.axon.ip)
+                return False, 128
+
             if response is None or response.output is None:
-                bt.logging.debug("Cross validation failed")
+                logger.info("Cross validation failed", miner_hotkey=hotkey, reason="empty", miner_ip = response.axon.ip)
                 return False, 128
 
             response_time += response.dendrite.process_time
 
-            if not str(response.output) == str(expected_response):
-                bt.logging.debug("Cross validation failed")
+            if response.output != expected_response:
+                logger.info("Cross validation failed",  miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="expected_response", response_output=response.output, expected_output=expected_response)
                 return False, response_time
-            """
-            return True, response_time
 
+            logger.info("Cross validation passed", miner_hotkey=hotkey, miner_ip = response.axon.ip)
+
+            return True, response_time
         except Exception as e:
-            bt.logging.error(f"Cross validation error occurred: {e}")
+            logger.error(f"Cross validation error occurred", error=traceback.format_exc(), miner_ip = response.axon.ip, miner_hotkey=hotkey)
             return None, None
 
     def is_miner_metadata_valid(self, response: Discovery):
@@ -183,23 +178,18 @@ class Validator(BaseValidatorNeuron):
         ip = response.axon.ip
 
         hotkey_meta = self.metadata.get_metadata_for_hotkey(hotkey)
-
         if not (hotkey_meta and hotkey_meta['network']):
-            bt.logging.info(f'({hotkey=}) Validation Failed: unable to retrieve miner metadata')
+            logger.info("Validation failed", miner_hotkey=hotkey, reason="metadata_retrival", miner_ip = response.axon.ip)
             return False
 
         ip_count = self.metadata.ip_distribution.get(ip, 0)
         coldkey_count = self.metadata.coldkey_distribution.get(hotkey, 0)
-
-        bt.logging.info(f"({hotkey=}) 🔄 Processing response from miner {ip}")
         if ip_count > MAX_MINER_INSTANCE:
-            bt.logging.info(f'({hotkey=}) Validation Failed: {ip_count} ips')
+            logger.info("Validation failed", miner_hotkey=hotkey, reason="ip_count", ip_count=ip_count, miner_ip = response.axon.ip)
             return False
         if coldkey_count > MAX_MINER_INSTANCE:
-            bt.logging.info(f'({hotkey=}) Validation Failed: Coldkey has {coldkey_count} hotkeys')
+            logger.info("Validation failed", miner_hotkey=hotkey, reason="coldkey_count", coldkey_count=coldkey_count, miner_ip = response.axon.ip)
             return False
-
-        bt.logging.info(f'({hotkey=}) Hotkey has {ip_count} ip, {coldkey_count} hotkeys for its coldkey')
 
         return True
 
@@ -208,11 +198,11 @@ class Validator(BaseValidatorNeuron):
         status_code = response.axon.status_code
         status_message = response.axon.status_message
         if response.is_failure:
-            bt.logging.info(f"({hotkey=}) Discovery response: Failure,  returned {status_code=}: {status_message=}")
+            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="failure",  status_message=f"{status_message}", miner_ip = response.axon.ip)
         elif response.is_blacklist:
-            bt.logging.info(f"({hotkey=}) Discovery response: Blacklist, returned {status_code=}: {status_message=}")
+            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="blacklist", status_message=f"{status_message}", miner_ip = response.axon.ip)
         elif response.is_timeout:
-            bt.logging.info(f"({hotkey=}) Discovery response: Timeout")
+            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="timeout", miner_ip = response.axon.ip)
         return status_code == 200
 
     def is_response_valid(self, response: Discovery):
@@ -227,19 +217,20 @@ class Validator(BaseValidatorNeuron):
     def get_reward(self, response: Discovery, uid: int, benchmarks_result):
         try:
             hotkey = response.axon.hotkey
-            uid_value = uid.item() if uid.numel() == 1 else int(uid.numpy())
+            uid_value = int(uid) if isinstance(uid, np.ndarray) and uid.size == 1 else int(uid)
 
             if not self.is_response_status_code_valid(response):
-                score = self.metagraph.T[uid]/2
+                score = self.metagraph.T[uid]/4
                 self.miner_uptime_manager.down(uid_value, hotkey)
-                bt.logging.debug(f'({hotkey=}) Discovery Response error, setting score to {score}')
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="status_code_invalid", score=float(score), miner_ip = response.axon.ip, miner_uid = uid_value)
                 return score
             if not is_discovery_response_valid(response):
                 self.miner_uptime_manager.down(uid_value, hotkey)
-                bt.logging.debug(f'({hotkey=}) Discovery Response invalid {response}')
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="invalid_response", score=0, miner_ip = response.axon.ip, miner_uid = uid_value)
                 return 0
             if not self.is_miner_metadata_valid(response):
                 self.miner_uptime_manager.down(uid_value, hotkey)
+                logger.info("Reward failed", miner_hotkey=hotkey, reason="metadata_invalid", score=0, miner_ip = response.axon.ip, miner_uid = uid_value)
                 return 0
 
             output: DiscoveryOutput = response.output
@@ -250,107 +241,143 @@ class Validator(BaseValidatorNeuron):
             hotkey = response.axon.hotkey
 
             if self.block_height_cache[network] - last_block_height < 6:
-                bt.logging.info(f"({hotkey=}) Indexed block cannot be higher than current_block - 6")
+                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="block_height_invalid", score=0, block_height_cache=self.block_height_cache[network], last_block_height=last_block_height)
+                return 0
+
+            if abs(balance_model_last_block - last_block_height) > self.validator_config.balance_model_diff:
+                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="models_not_synced", score=0, balance_model_last_block=balance_model_last_block, last_block_height=last_block_height, diff=abs(balance_model_last_block - last_block_height), balance_model_diff=self.validator_config.balance_model_diff)
                 return 0
 
             result, average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)
             if not result:
-                bt.logging.info(f"({hotkey=}) Ping Test failed, setting score to avg_ping_time=0..")
+                logger.info("Ping Test failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="ping_test_failed")
             else:
-                bt.logging.info(f"({hotkey=}) Ping Test: average ping time: {average_ping_time} seconds")
+                logger.info("Ping Test passed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, average_ping_time=average_ping_time)
 
-            cross_validation_result = self.cross_validate(response.axon, self.nodes[network], self.challenge_factory[network], start_block_height, last_block_height, balance_model_last_block)
-
-            if cross_validation_result is None:
+            cross_validation_result, _ = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height, balance_model_last_block)
+            if cross_validation_result is None or not cross_validation_result:
                 self.miner_uptime_manager.down(uid_value, hotkey)
-                bt.logging.debug(f"({hotkey=}) Cross-Validation: Timeout skipping response")
-                return None
-            if not cross_validation_result:
-                self.miner_uptime_manager.down(uid_value, hotkey)
-                bt.logging.info(f"({hotkey=}) Cross-Validation: Test failed")
-                return 0
-            bt.logging.info(f"({hotkey=}) Cross-Validation: Test passed")
-
-            benchmark_result = benchmarks_result.get(uid_value)
-            if benchmark_result is None:
-                self.miner_uptime_manager.down(uid_value, hotkey)
-                bt.logging.info(f"({hotkey=}) Benchmark-Validation: Timeout skipping response")
-                return
-
-            response_time, benchmark_is_valid = benchmark_result
-            if not benchmark_is_valid:
-                self.miner_uptime_manager.down(uid_value, hotkey)
-                bt.logging.info(f"({hotkey=}) Benchmark-Validation: Test failed")
+                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="cross_validation_failed", score=0)
                 return 0
 
-            bt.logging.info(f"({hotkey=}) Benchmark-Validation: Test passed")
+            funds_flow_benchmark_result = benchmarks_result.get(uid_value)[MODEL_TYPE_FUNDS_FLOW]
+            if funds_flow_benchmark_result is None:
+                score = self.metagraph.T[uid]/4
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="funds_flow_benchmark_timeout", score=float(score))
+                return score
 
-            response_time = response_time - average_ping_time
+            funds_flow_response_time, funds_flow_benchmark_is_valid = funds_flow_benchmark_result
+            if not funds_flow_benchmark_is_valid:
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="funds_flow_benchmark_failed", score=0)
+                return 0
+
+            balance_tracking_benchmark_result = benchmarks_result.get(uid_value)[MODEL_TYPE_BALANCE_TRACKING]
+            if balance_tracking_benchmark_result is None:
+                score = self.metagraph.T[uid]/4
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="balance_tracking_benchmark_timeout", score=float(score))
+                return score
+
+            balance_tracking_response_time, balance_tracking_benchmark_is_valid = balance_tracking_benchmark_result
+            if not balance_tracking_benchmark_is_valid:
+                self.miner_uptime_manager.down(uid_value, hotkey)
+                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="balance_tracking_benchmark_failed", score=0)
+                return 0
+
+            funds_flow_response_time = funds_flow_response_time - average_ping_time
+            balance_tracking_response_time = balance_tracking_response_time - average_ping_time
 
             self.miner_uptime_manager.up(uid_value, hotkey)
             uptime_score = self.miner_uptime_manager.get_uptime_scores(hotkey)
+            process_time = funds_flow_response_time + balance_tracking_response_time
+            worst_end_block_height = min(self.metadata.worst_funds_flow_end_block_height, self.metadata.worst_balance_tracking_end_block_height)
 
             score = self.scorer.calculate_score(
                 hotkey,
                 network,
-                response_time,
+                process_time,
                 start_block_height,
                 last_block_height,
                 self.block_height_cache[network],
                 self.metadata.network_distribution,
                 uptime_score['average'],
-                self.metadata.worst_end_block_height,
+                worst_end_block_height
             )
 
             return score
         except Exception as e:
-            bt.logging.error(f"Error occurred during cross-validation: {traceback.format_exc()}")
+            logger.error("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="exception", error=traceback.format_exc())
             return None
 
+    def calculate_min_max_time(self, benchmarks_result, responses):
+        max_time_response = 0
+        min_time_response = self.validator_config.benchmark_timeout
+        for item, response in zip(benchmarks_result.values(), responses):
+            average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)[1]
+            f_max_time_response = max(max_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
+            f_min_time_response = min(min_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
+
+            b_max_time_response = max(max_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
+            b_min_time_response = min(min_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
+
+            max_time_response = f_max_time_response + b_max_time_response
+            min_time_response = f_min_time_response + b_min_time_response
+
+        if max_time_response == min_time_response:
+            max_time_response += 0.1
+        return min_time_response, max_time_response
+    
     async def forward(self):
-        self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
-        # Update the subtensor, metagraph, scores of api_server as the one of validator is updated.
-        self.api_server.subtensor = self.subtensor
-        self.api_server.metagraph = self.metagraph
-        self.api_server.scores = self.scores
-        uids = next(self.uid_batch_generator, None)
-        if uids is None:
-            self.uid_batch_generator = get_uids_batch(self, self.config.neuron.sample_size)
+        try:
+            self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
+
             uids = next(self.uid_batch_generator, None)
+            if uids is None:
+                self.uid_batch_generator = get_uids_batch(self, self.validator_config.sample_size)
+                uids = next(self.uid_batch_generator, None)
 
-        axons = [self.metagraph.axons[uid] for uid in uids]
+            axons = [self.metagraph.axons[uid] for uid in uids]
 
-        responses = self.dendrite.query(
-            axons,
-            Discovery(),
-            deserialize=True,
-            timeout=self.validator_config.discovery_timeout,
-        )
+            responses = self.dendrite.query(
+                axons,
+                Discovery(),
+                deserialize=True,
+                timeout=self.validator_config.discovery_timeout,
+            )
 
-        responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
-        benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
+            responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
+            benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
 
-        self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
+            self.update_scorer_config(benchmarks_result, responses)
+            self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
-        rewards = [
-            self.get_reward(response, uid, benchmarks_result) for response, uid in zip(responses, uids)
-        ]
+            rewards = [
+                self.get_reward(response, uid, benchmarks_result) for response, uid in zip(responses, uids)
+            ]
 
-        filtered_data = [(reward, uid) for reward, uid in zip(rewards, uids) if reward is not None]
+            filtered_data = [(reward, uid) for reward, uid in zip(rewards, uids) if reward is not None]
 
-        if filtered_data:
-            rewards, uids = zip(*filtered_data)
+            if filtered_data:
+                rewards, uids = zip(*filtered_data)
 
-            rewards = torch.FloatTensor(rewards)
-            self.update_scores(rewards, uids)
-        else:
-            bt.logging.info('Skipping update_scores() as no responses were valid')
+                rewards = np.float32(rewards)
+                self.update_scores(rewards, uids)
+            else:
+                logger.info("Forward failed", reason="no_valid_responses")
+        except Exception as e:
+            logger.error("Forward failed", reason="exception", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+
+    def update_scorer_config(self, benchmarks_result, responses):
+        min_time, max_time = self.calculate_min_max_time(benchmarks_result, responses)
+        self.scorer.processing_times['min_time'] = min_time
+        self.scorer.processing_times['max_time'] = max_time
 
     def sync_validator(self):
         self.metadata = Metadata.build(self.metagraph, self.config)
         self.validator_config = ValidatorConfig().load_and_get_config_values()
         self.scorer = Scorer(self.validator_config)
-
         self.networks = self.validator_config.get_networks()
         self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
         if self.validator_config.version_update is True and self.validator_config.version != insights.__version__:
@@ -363,29 +390,14 @@ class Validator(BaseValidatorNeuron):
     def send_metadata(self):
         store_validator_metadata(self)
 
-def run_api_server(api_server):
-    api_server.start()
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
     load_dotenv()
 
     with Validator() as validator:
-        if validator.config.enable_api:
-            if not validator.api_server:
-                validator.api_server = APIServer(
-                    config=validator.config,
-                    wallet=validator.wallet,
-                    subtensor=validator.subtensor,
-                    metagraph=validator.metagraph,
-                    scores=validator.scores
-                )
-            api_server_thread = threading.Thread(target=run_api_server, args=(validator.api_server,))
-            api_server_thread.start()
-
         while True:
-            bt.logging.info("Validator running")
+            logger.info("Validator running")
             time.sleep(bt.__blocktime__*10)
 
 

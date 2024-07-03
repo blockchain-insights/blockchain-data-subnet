@@ -1,10 +1,12 @@
 import traceback
 from contextlib import contextmanager
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean, inspect, \
+    MetaData, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinload, subqueryload, joinedload
 from datetime import datetime, timedelta
-import bittensor as bt
+from neurons import logger
 
 Base = declarative_base()
 
@@ -28,9 +30,57 @@ class Downtimes(Base):
 class MinerUptimeManager:
     def __init__(self, db_url='sqlite:///miners.db'):
         self.engine = create_engine(db_url)
+
+        if not self.compare_schemas(self.engine):
+            with self.engine.connect() as conn:
+                inspector = inspect(self.engine)
+                table_names = inspector.get_table_names()
+                for table_name in table_names:
+                    try:
+                        conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
+                        conn.commit()
+                    except ProgrammingError as e:
+                        logger.error(f"Failed to drop table {table_name}: {e}")
+
         Base.metadata.create_all(self.engine)
         self.session_factory = sessionmaker(bind=self.engine)
         self.Session = scoped_session(self.session_factory)
+        self.immunity_period = 8000 * 12
+
+    def compare_schemas(self, engine):
+        # Reflect the database schema
+        metadata = MetaData()
+        metadata.reflect(bind=engine)
+
+        existing_tables = set(metadata.tables.keys())
+        model_tables = set(Base.metadata.tables.keys())
+
+        # Compare table names
+        if existing_tables != model_tables:
+            return False
+
+        inspector = inspect(engine)
+
+        for table_name in existing_tables.intersection(model_tables):
+            existing_columns = set(c['name'] for c in inspector.get_columns(table_name))
+            model_columns = set(c.name for c in Base.metadata.tables[table_name].columns)
+
+            # Compare columns
+            if existing_columns != model_columns:
+                return False
+
+            # Add more detailed comparison logic if needed
+            existing_constraints = {c['name']: c for c in inspector.get_unique_constraints(table_name)}
+            model_constraints = {c.name: c for c in Base.metadata.tables[table_name].constraints if isinstance(c, UniqueConstraint)}
+
+            if set(existing_constraints.keys()) != set(model_constraints.keys()):
+                return False
+
+            for name in existing_constraints.keys():
+                if existing_constraints[name]['column_names'] != list(model_constraints[name].columns.keys()):
+                    return False
+
+        return True
 
 
     @contextmanager
@@ -61,7 +111,7 @@ class MinerUptimeManager:
                     if last_downtime:
                         last_downtime.end_time = datetime.utcnow()
         except Exception as e:
-            bt.logging.error(f"Error occurred during uptime end for {hotkey} {traceback.format_exc()}")
+            logger.error("Error occurred during uptime end", miner_hotkey=hotkey, error=traceback.format_exc())
 
     def down(self, uid, hotkey):
         try:
@@ -76,7 +126,7 @@ class MinerUptimeManager:
                         new_downtime = Downtimes(miner_id=miner.id, start_time=datetime.utcnow(), end_time=None)
                         session.add(new_downtime)
         except Exception as e:
-            bt.logging.error(f"Error occurred during downtime start for {hotkey} {traceback.format_exc()}")
+            logger.error("Error occurred during downtime start", miner_hotkey=hotkey, error=traceback.format_exc())
 
     def get_miner(self, hotkey):
         try:
@@ -87,7 +137,7 @@ class MinerUptimeManager:
                     return miner
                 return None
         except Exception as e:
-            bt.logging.error(f"Error occurred during miner retrieval for {hotkey} {traceback.format_exc()}")
+            logger.error("Error occurred during miner retrieval", miner_hotkey=hotkey, error=traceback.format_exc())
             return None
 
     def calculate_uptimes(self, hotkey, period_seconds):
@@ -99,30 +149,30 @@ class MinerUptimeManager:
                     return 0  # No miner found for the UID and hotkey provided
 
                 active_period_end = datetime.utcnow()
-                active_period_start = miner.uptime_start
+                active_period_start = miner.uptime_start + timedelta(seconds=self.immunity_period)
 
                 result = {}
 
                 for period_second in period_seconds:
                     adjusted_start = max(active_period_start, datetime.utcnow() - timedelta(seconds=period_second))
                     if adjusted_start > active_period_end:
-                        result[period_second] = 0
+                        result[period_second] = 1
                         continue
 
-                    active_seconds = (active_period_end - active_period_start).total_seconds()
+                    active_seconds = (active_period_end - adjusted_start).total_seconds()
                     total_downtime = sum(
                         (log.end_time - log.start_time).total_seconds()
                         for log in miner.downtimes
-                        if log.start_time >= active_period_start and log.end_time and log.end_time <= active_period_end
+                        if log.start_time >= adjusted_start and log.end_time and log.end_time <= active_period_end
                     )
+                    actual_uptime_seconds = max(0, active_seconds - total_downtime)
+                    actual_period_second = min(period_second, active_seconds)
 
-                    actual_uptime_seconds = max(0, period_second - total_downtime)
-                    result[period_second] = actual_uptime_seconds / period_second if active_seconds > 0 else 0
-
+                    result[period_second] = actual_uptime_seconds / actual_period_second if active_seconds > 0 else 0
                 return result
 
         except Exception as e:
-            bt.logging.error(f"Error occurred during uptime calculation for {miner.hotkey}: {traceback.format_exc()}")
+            logger.error("Error occurred during uptime calculation", miner_hotkey=miner.hotkey, error=traceback.format_exc())
             raise e
 
     def get_uptime_scores(self, hotkey):
@@ -131,5 +181,6 @@ class MinerUptimeManager:
         month = 2629746
         result = self.calculate_uptimes(hotkey, [day, week, month])
         average = (result[day] + result[week] + result[month]) / 3
+        logger.debug('Uptime Scores', result = result)
         return {'daily': result[day], 'weekly': result[week], 'monthly': result[month], 'average': average}
 
