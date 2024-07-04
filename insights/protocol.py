@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 import bittensor as bt
 from protocols.llm_engine import LlmMessage, QueryOutput
 from pydantic import BaseModel, ConfigDict
@@ -82,7 +82,7 @@ class LlmQuery(BaseSynapse):
     messages: List[LlmMessage] = None
 
     # output
-    output: Optional[List[QueryOutput]] = None
+    output: Optional[Dict] = None
 
-    def deserialize(self) -> Optional[List[QueryOutput]]:
+    def deserialize(self) -> Optional[Dict]:
         return self.output

@@ -3,6 +3,7 @@ import json
 import os
 import re
 import time
+from datetime import datetime
 import traceback
 import typing
 import bittensor as bt
@@ -261,7 +262,10 @@ class Miner(BaseMinerNeuron):
 
     async def llm_query(self, synapse: protocol.LlmQuery) -> protocol.LlmQuery:
         logger.info(f"llm query received: {synapse}")
-        query_output = self.llm.llm_query_v1(synapse.messages, self.config.llm_type)
+        query_start_time = datetime.utcnow()
+        start_time = time.time()
+        query_output, token_usage = self.llm.llm_query_v1(synapse.messages, self.config.llm_type)
+        execution_time = time.time() - start_time
         if query_output is None:
             logger.error("Failed to query for llm query")
             synapse.output = [QueryOutput(type="text", error=LLM_ERROR_GENERAL_RESPONSE_FAILED, interpreted_result=LLM_ERROR_MESSAGES[LLM_CLIENT_ERROR])]
@@ -269,7 +273,12 @@ class Miner(BaseMinerNeuron):
             for query_output_item in query_output:
                 query_output_item['miner_hotkey'] = self.wallet.hotkey.ss58_address
 
-            synapse.output = query_output
+            synapse.output = {
+                'query_output' : query_output, 
+                'token_usage' : token_usage, 
+                'query_start_time' : query_start_time,
+                'execution_time' : execution_time
+            }
             logger.info(f"Serving miner llm query output: {synapse.output}")
 
         return synapse
