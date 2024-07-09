@@ -6,15 +6,19 @@ class Scorer:
     def __init__(self, config: ValidatorConfig):
         self.config = config
         self.processing_times = { 'min_time': 1, 'max_time': 10 }
+        self.max_token_usage = {}
 
-    def calculate_score(self, hotkey, network,  process_time, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height, miner_distribution, uptime_avg, worst_end_block_height):
+    def calculate_score(self, hotkey, network,  process_time, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height, miner_distribution, uptime_avg, worst_end_block_height, token_usage):
         process_time_score = self.calculate_process_time_score(process_time, self.config.benchmark_timeout)
         block_height_score = self.calculate_block_height_score(network, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height)
 
         block_height_recency_score = self.calculate_block_height_recency_score(indexed_end_block_height, blockchain_last_block_height, worst_end_block_height)
         blockchain_score = self.calculate_blockchain_weight(network, miner_distribution)
         uptime_score = self.calculate_uptime_score(uptime_avg)
-        final_score = self.final_score(process_time_score, block_height_score, block_height_recency_score, blockchain_score, uptime_score)
+        
+        token_usage_score = self.calculate_token_usage_score(token_usage)
+        
+        final_score = self.final_score(process_time_score, block_height_score, block_height_recency_score, blockchain_score, uptime_score, token_usage_score)
 
         logger.info("Score calculated",
                     hotkey=hotkey,
@@ -29,11 +33,12 @@ class Scorer:
                     block_height_recency_score=block_height_recency_score,
                     blockchain_score=blockchain_score,
                     uptime_score=uptime_score,
+                    token_usage_score=token_usage_score,
                     final_score=final_score)
 
         return final_score
 
-    def final_score(self, process_time_score, block_height_score, block_height_recency_score, blockchain_score, uptime_score):
+    def final_score(self, process_time_score, block_height_score, block_height_recency_score, blockchain_score, uptime_score, token_usage_score):
 
         if process_time_score == 0 or block_height_score == 0 or block_height_recency_score == 0:
             return 0
@@ -43,7 +48,8 @@ class Scorer:
             block_height_score * self.config.block_height_weight +
             block_height_recency_score * self.config.block_height_recency_weight +
             blockchain_score * self.config.blockchain_importance_weight +
-            uptime_score * self.config.uptime_weight
+            uptime_score * self.config.uptime_weight + 
+            token_usage_score * self.config.token_usage_weight
         )
 
         total_weights = (
@@ -51,7 +57,8 @@ class Scorer:
             self.config.block_height_weight +
             self.config.block_height_recency_weight +
             self.config.blockchain_importance_weight +
-            self.config.uptime_weight
+            self.config.uptime_weight +
+            self.config.token_usage_weight
         )
 
         normalized_score = total_score / total_weights
@@ -80,6 +87,19 @@ class Scorer:
         # Use the new performance scoring method
         process_time_score = self.get_performance_score(process_time, best_time, worst_time, discovery_timeout)
         return process_time_score
+
+    def calculate_token_usage_score(self, token_usage):
+        token_usage_score = (
+            token_usage['daily']['completion_tokens'] / self.max_token_usage['daily']['completion_tokens'] + 
+            token_usage['daily']['prompt_tokens'] / self.max_token_usage['daily']['prompt_tokens'] + 
+            token_usage['daily']['total_tokens'] / self.max_token_usage['daily']['total_tokens'] + 
+            token_usage['weekly']['completion_tokens'] / self.max_token_usage['weekly']['completion_tokens'] + 
+            token_usage['weekly']['prompt_tokens'] / self.max_token_usage['weekly']['prompt_tokens'] + 
+            token_usage['weekly']['total_tokens'] / self.max_token_usage['weekly']['total_tokens'] + 
+            token_usage['monthly']['completion_tokens'] / self.max_token_usage['monthly']['completion_tokens'] + 
+            token_usage['monthly']['prompt_tokens'] / self.max_token_usage['monthly']['prompt_tokens'] + 
+            token_usage['monthly']['total_tokens'] / self.max_token_usage['monthly']['total_tokens']) / 9.0
+        return token_usage_score
 
     @staticmethod
     def calculate_block_height_recency_score(indexed_end_block_height, blockchain_block_height, worst_end_block_height):

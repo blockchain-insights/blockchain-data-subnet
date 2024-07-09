@@ -182,6 +182,8 @@ class ValidatorConfig(RemoteConfig):
         self.block_height_recency_weight = self.get_config_value('block_height_recency_weight',  5)
         self.blockchain_importance_weight = self.get_config_value('blockchain_importance_weight', 1)
         
+        self.token_usage_weight = self.get_config_value('token_usage_weight', 16)
+        
         self.discovery_timeout = self.get_config_value('discovery_timeout', 6)
         self.challenge_timeout = self.get_config_value('challenge_timeout', 6)
 

@@ -42,6 +42,7 @@ from neurons.validators.utils.ping import ping
 from neurons.validators.utils.synapse import is_discovery_response_valid
 from neurons.validators.utils.uids import get_uids_batch
 from template.base.validator import BaseValidatorNeuron
+from neurons.validators.receipt_client import ReceiptClient
 from neurons import logger
 
 
@@ -117,6 +118,7 @@ class Validator(BaseValidatorNeuron):
         immunity_period = self.subtensor.immunity_period(self.config.netuid)
         logger.info("Immunity period", immunity_period=immunity_period)
         self.miner_uptime_manager.immunity_period = immunity_period
+        self.receipt_client = ReceiptClient(self.config.receipt_api_url)
 
     def cross_validate(self, axon, node, start_block_height, last_block_height, balance_model_last_block):
         try:
@@ -294,6 +296,8 @@ class Validator(BaseValidatorNeuron):
             process_time = funds_flow_response_time + balance_tracking_response_time
             worst_end_block_height = min(self.metadata.worst_funds_flow_end_block_height, self.metadata.worst_balance_tracking_end_block_height)
 
+            token_usage = self.receipt_client.get_token_usages(hotkey)
+            
             score = self.scorer.calculate_score(
                 hotkey,
                 network,
@@ -303,7 +307,8 @@ class Validator(BaseValidatorNeuron):
                 self.block_height_cache[network],
                 self.metadata.network_distribution,
                 uptime_score['average'],
-                worst_end_block_height
+                worst_end_block_height,
+                token_usage
             )
 
             return score
@@ -351,6 +356,7 @@ class Validator(BaseValidatorNeuron):
             benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
 
             self.update_scorer_config(benchmarks_result, responses)
+            self.get_max_token_usages()
             self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
             rewards = [
@@ -368,6 +374,29 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Forward failed", reason="no_valid_responses")
         except Exception as e:
             logger.error("Forward failed", reason="exception", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+    def get_max_token_usages(self):
+        response = self.receipt_client.get_token_usages()
+        eps = 1e-6
+        
+        token_usage = {
+            'daily' : {'completion_tokens' : 0, 'prompt_tokens' : 0, 'total_tokens' : 0},
+            'weekly' : {'completion_tokens' : 0, 'prompt_tokens' : 0, 'total_tokens' : 0},
+            'monthly' : {'completion_tokens' : 0, 'prompt_tokens' : 0, 'total_tokens' : 0}
+        }
+        
+        token_usage['daily']['completion_tokens'] = max([(res['daily']['completion_tokens'] + eps) for res in response.values()])
+        token_usage['daily']['prompt_tokens'] = max([(res['daily']['prompt_tokens'] + eps) for res in response.values()])
+        token_usage['daily']['total_tokens'] = max([(res['daily']['total_tokens'] + eps) for res in response.values()])
+        
+        token_usage['weekly']['completion_tokens'] = max([(res['weekly']['completion_tokens'] + eps) for res in response.values()])
+        token_usage['weekly']['prompt_tokens'] = max([(res['weekly']['prompt_tokens'] + eps) for res in response.values()])
+        token_usage['weekly']['total_tokens'] = max([(res['weekly']['total_tokens'] + eps) for res in response.values()])
+        
+        token_usage['monthly']['completion_tokens'] = max([(res['monthly']['completion_tokens'] + eps) for res in response.values()])
+        token_usage['monthly']['prompt_tokens'] = max([(res['monthly']['prompt_tokens'] + eps) for res in response.values()])
+        token_usage['monthly']['total_tokens'] = max([(res['monthly']['total_tokens'] + eps) for res in response.values()])
+
+        self.scorer.max_token_usage = token_usage
 
     def update_scorer_config(self, benchmarks_result, responses):
         min_time, max_time = self.calculate_min_max_time(benchmarks_result, responses)
