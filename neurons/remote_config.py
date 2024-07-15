@@ -97,7 +97,7 @@ class MinerConfig(RemoteConfig):
         self.max_requests = 128
         self.min_request_period = 60
         self.stake_threshold = 5000
-        self.config_url = os.getenv("MINER_REMOTE_CONFIG_URL", 'https://subnet-15-cfg.s3.fr-par.scw.cloud/miner.json')
+        self.config_url = os.getenv("MINER_REMOTE_CONFIG_URL", 'https://chaininsightsaipreprod.blob.core.windows.net/minercfg/miner.json')
         self.blockchain_sync_delta = 100
         self.is_grace_period = False
         self.set_weights = True
@@ -133,7 +133,7 @@ class MinerConfig(RemoteConfig):
         value = self.get_config_composite_value(f'benchmark_funds_flow_regex.{network}', "UNWIND range\\((\\d+), (\\d+)\\) AS block_height MATCH \\(p:Transaction\\) WHERE p.block_height = block_height RETURN SUM\\(p.(\\w+)\\+(\\d+)\\)$")
         return value
     def get_benchmark_balance_tracking_regex(self, network):
-        value = self.get_config_composite_value(f'benchmark_balance_tracking_regex.{network}', "^SELECT ([a-zA-Z0-9_]+) FROM balance_changes WHERE ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+)( OR ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+))*$")
+        value = self.get_config_composite_value(f'benchmark_balance_tracking_regex.{network}', "^SELECT ([a-zA-Z0-9()_]+) FROM balance_changes WHERE ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+)( OR ([a-zA-Z0-9_]+) BETWEEN (\d+) AND (\d+))*$")
         return value
 
 
@@ -160,14 +160,16 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_timeout = 600
         self.benchmark_cluster_size = 32
         self.benchmark_query_chunk_size = 5
-        self.benchmark_query_diff = 10000
+        self.benchmark_funds_flow_query_diff = 10000
+        self.benchmark_balance_tracking_query_diff = 10000
+        self.balance_tracking_diff = 849008
         self.sample_size = 256
 
         self.version = None
         self.version_update = True
         self.balance_model_diff = 849008
 
-        self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://subnet-15-cfg.s3.fr-par.scw.cloud/validator3.json')
+        self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://chaininsightsaipreprod.blob.core.windows.net/validatorcfg/validator.json')
 
     def load_and_get_config_values(self):
         self.load_remote_config()
@@ -191,9 +193,11 @@ class ValidatorConfig(RemoteConfig):
         self.benchmark_consensus = self.get_config_value('benchmark_consensus', 0.51)
 
         self.benchmark_timeout = self.get_config_value('benchmark_timeout', 600)
-        self.benchmark_cluster_size = self.get_config_value('benchmark_cluster_size', 1)
+
         self.benchmark_query_chunk_size = self.get_config_value('benchmark_query_chunk_size', 5)
-        self.benchmark_query_diff = self.get_config_value('benchmark_query_diff', 10000)
+        self.benchmark_funds_flow_query_diff = self.get_config_value('benchmark_funds_flow_query_diff', 10000)
+        self.benchmark_balance_tracking_query_diff = self.get_config_value('benchmark_balance_tracking_query_diff', 10000)
+        self.balance_tracking_diff = self.get_config_value('balance_tracking_diff', 849008)
 
         self.version_update = self.get_config_value('version_update', True)
         self.version = self.get_config_value('version', insights.__version__)

@@ -4,7 +4,7 @@ from protocols.llm_engine import LlmMessage, QueryOutput
 from pydantic import BaseModel, ConfigDict
 
 # protocol version
-VERSION = 5
+VERSION = 6
 ERROR_TYPE = int
 MAX_MINER_INSTANCE = 9
 

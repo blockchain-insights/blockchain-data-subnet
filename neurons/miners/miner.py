@@ -62,6 +62,8 @@ class Miner(BaseMinerNeuron):
 
         config.db_connection_string = os.environ.get('DB_CONNECTION_STRING', '')
 
+        config.llm_type = os.environ.get('LLM_TYPE', 'openai')
+
         dev = config.dev
         if dev:
             dev_config_path = "miner.yml"
@@ -259,7 +261,7 @@ class Miner(BaseMinerNeuron):
 
     async def llm_query(self, synapse: protocol.LlmQuery) -> protocol.LlmQuery:
         logger.info(f"llm query received: {synapse}")
-        query_output = self.llm.llm_query_v1(synapse.messages)
+        query_output = self.llm.llm_query_v1(synapse.messages, self.config.llm_type)
         if query_output is None:
             logger.error("Failed to query for llm query")
             synapse.output = [QueryOutput(type="text", error=LLM_ERROR_GENERAL_RESPONSE_FAILED, interpreted_result=LLM_ERROR_MESSAGES[LLM_CLIENT_ERROR])]

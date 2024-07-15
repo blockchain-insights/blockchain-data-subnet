@@ -232,6 +232,7 @@ class BaseValidatorNeuron(BaseNeuron):
         # Replace any NaN values with 0.
         norm = np.linalg.norm(self.scores, ord=1, axis=-1, keepdims=True) + np.finfo(np.float32).eps
         raw_weights = self.scores / norm
+        logger.debug(f'Raw weights', raw_weights = raw_weights.tolist())
 
         # Process the raw weights to final_weights via subtensor limitations.
         (
@@ -244,6 +245,7 @@ class BaseValidatorNeuron(BaseNeuron):
             subtensor=self.subtensor,
             metagraph=self.metagraph,
         )
+        logger.debug(f'Processed weights', processed_weights = [(uid, weight) for uid, weight in zip(processed_weight_uids.tolist(), processed_weights.tolist())])
 
         # Convert to uint16 weights and uids.
         (
@@ -256,10 +258,14 @@ class BaseValidatorNeuron(BaseNeuron):
         uids_and_weights = list(
             zip(uint_uids, uint_weights)
             )
+        
+        logger.debug(f'Converted weights to uids', uids_and_weights = uids_and_weights)
         # Sort by weights descending.
         sorted_uids_and_weights = sorted(
             uids_and_weights, key=lambda x: x[1], reverse=True
         )
+        
+        logger.debug(f'sorted weights to uids', sorted_uids_and_weights = sorted_uids_and_weights)
 
         weight_log = {}
         for uid, weight in sorted_uids_and_weights:
@@ -280,9 +286,11 @@ class BaseValidatorNeuron(BaseNeuron):
             wait_for_inclusion=False,
             version_key=self.spec_version
         )
+        logger.info("Setting weights result: ", result = result, msg = msg)
 
         with self.lock:
             self.last_weights_set_block = self.block
+            logger.info('Set last_weights_set_block', last_weights_set_block = self.last_weights_set_block)
         if result is True:
             logger.info("set_weights on chain successfully!")
         else:
