@@ -31,8 +31,7 @@ class MinerMetadata(Metadata):
 class ValidatorMetadata(Metadata):
     cv: Optional[str] #code_version
     ip: Optional[str] #api_ip
-    p: Optional[int] #api_port
-    api: Optional[bool] #api running
+
 
     @staticmethod
     def from_compact(compact_str):
@@ -95,8 +94,6 @@ def store_validator_metadata(self):
         logger.info(f"Storing validator metadata")
         metadata =  ValidatorMetadata(
             ip=self.metagraph.axons[self.uid].ip,
-            p=int(self.config.api_port),
-            api=self.config.enable_api,
             cv=insights.__version__,
         )
 
@@ -105,10 +102,13 @@ def store_validator_metadata(self):
 
         existing_commitment = subtensor.get_commitment(self.config.netuid, self.uid)
         if existing_commitment is not None:
-            dual_miner = MinerMetadata.from_compact(existing_commitment)
-            if dual_miner.sb is not None:
-                logger.info("Skipping storing validator metadata, as this is a dual hotkey for miner and validator", metadata = metadata.to_compact())
-                return
+            try:
+                dual_miner = MinerMetadata.from_compact(existing_commitment)
+                if dual_miner.sb is not None:
+                    logger.info("Skipping storing validator metadata, as this is a dual hotkey for miner and validator", metadata = metadata.to_compact())
+                    return
+            except Exception as e:
+                logger.warning("Error while getting miner metadata, Continuing as validator...", miner_hotkey=hotkey)
 
         subtensor.commit(self.wallet, self.config.netuid, metadata.to_compact())
         logger.success("Stored validator metadata", metadata = metadata.to_compact())
