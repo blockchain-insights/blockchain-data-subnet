@@ -198,7 +198,7 @@ class Validator(BaseValidatorNeuron):
         status_code = response.axon.status_code
         status_message = response.axon.status_message
         if response.is_failure:
-            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="failure",  status_message=f"{status_message}", status_code=f"{status_code}",  miner_ip = response.axon.ip)
+            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="failure",  status_message=f"{status_message}", status_code=f"{status_code}",  miner_ip = response.axon.ip, response=response)
         elif response.is_blacklist:
             logger.info("Discovery response failure", miner_hotkey=hotkey, reason="blacklist", status_message=f"{status_message}", status_code=f"{status_code}",   miner_ip = response.axon.ip)
         elif response.is_timeout:
