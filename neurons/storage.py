@@ -108,7 +108,7 @@ def store_validator_metadata(self):
                     logger.info("Skipping storing validator metadata, as this is a dual hotkey for miner and validator", metadata = metadata.to_compact())
                     return
             except Exception as e:
-                logger.warning("Error while getting miner metadata, Continuing as validator...", miner_hotkey=hotkey)
+                logger.warning("Error while getting miner metadata, Continuing as validator...", miner_hotkey=hotkey,  error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
         subtensor.commit(self.wallet, self.config.netuid, metadata.to_compact())
         logger.success("Stored validator metadata", metadata = metadata.to_compact())
@@ -141,7 +141,7 @@ def get_miners_metadata(config, metagraph):
                 metadata = MinerMetadata.from_compact(metadata_str)
                 miners_metadata[hotkey] = metadata
             except Exception as e:
-                logger.warning("Error while getting miner metadata, Skipping...", miner_hotkey = hotkey)
+                logger.warning("Error while getting miner metadata, Skipping...", miner_hotkey = hotkey, error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
                 continue
 
     return miners_metadata
