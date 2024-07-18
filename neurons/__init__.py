@@ -41,4 +41,4 @@ if not os.environ.get("DISABLE_JSON_LOGS"):
     logger.remove(0)
     logger.add(sys.stdout, format=custom_log_formatter)
 
-    bt.logging._logger.setLevel(logging.CRITICAL)  # disable btlogging
+    bt.logging._logger.setLevel(logging.DEBUG)  # disable btlogging

@@ -13,32 +13,41 @@ class Metadata(BaseModel):
         return ','.join(f"{key}:{repr(getattr(self, key))}" for key in self.__dict__)
 
 class MinerMetadata(Metadata):
-    sb: Optional[int] #start_block_height
-    lb: Optional[int] #end_block_height
-    bl: Optional[int] #balance_model_last_block_height
-    n: Optional[int] #network
-    cv: Optional[str] #code_version
-    lv: Optional[str] #lllm engine version
+    sb: Optional[int] = None #start_block_height
+    lb: Optional[int]  = None#end_block_height
+    bl: Optional[int] = None#balance_model_last_block_height
+    n: Optional[int] = None#network
+    cv: Optional[str] = None#code_version
+    lv: Optional[str] = None#lllm engine version
+    mt: Optional[int] = None # model_type OBSOLETE
+    di: Optional[str]  = None# docker img OBSOLETE
     
     @staticmethod
     def from_compact(compact_str):
         data_dict = {}
         for item in compact_str.split(','):
             key, value = item.split(':', 1)
+            if value == 'None':
+                continue
             data_dict[key] = value.strip("'")
         return MinerMetadata(**data_dict)
 
 class ValidatorMetadata(Metadata):
-    cv: Optional[str] #code_version
-    ip: Optional[str] #api_ip
-    p: Optional[int] #api_port
-    api: Optional[bool] #api running
+    cv: Optional[str] = None #code_version
+    ip: Optional[str] = None #api_ip
+
+    b: Optional[int] = None
+    v: Optional[int] = None
+    di: Optional[str] = None
+
 
     @staticmethod
     def from_compact(compact_str):
         data_dict = {}
         for item in compact_str.split(','):
             key, value = item.split(':', 1)
+            if value == 'None':
+                continue
             data_dict[key] = value.strip("'")
         return ValidatorMetadata(**data_dict)
 
@@ -95,8 +104,6 @@ def store_validator_metadata(self):
         logger.info(f"Storing validator metadata")
         metadata =  ValidatorMetadata(
             ip=self.metagraph.axons[self.uid].ip,
-            p=int(self.config.api_port),
-            api=self.config.enable_api,
             cv=insights.__version__,
         )
 
@@ -105,10 +112,13 @@ def store_validator_metadata(self):
 
         existing_commitment = subtensor.get_commitment(self.config.netuid, self.uid)
         if existing_commitment is not None:
-            dual_miner = MinerMetadata.from_compact(existing_commitment)
-            if dual_miner.sb is not None:
-                logger.info("Skipping storing validator metadata, as this is a dual hotkey for miner and validator", metadata = metadata.to_compact())
-                return
+            try:
+                dual_miner = MinerMetadata.from_compact(existing_commitment)
+                if dual_miner.sb is not None:
+                    logger.info("Skipping storing validator metadata, as this is a dual hotkey for miner and validator", metadata = metadata.to_compact())
+                    return
+            except Exception as e:
+                logger.warning("Error while getting miner metadata, Continuing as validator...", miner_hotkey=hotkey,  error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
         subtensor.commit(self.wallet, self.config.netuid, metadata.to_compact())
         logger.success("Stored validator metadata", metadata = metadata.to_compact())
@@ -138,10 +148,11 @@ def get_miners_metadata(config, metagraph):
                 metadata_str = subtensor.get_commitment(config.netuid, 0)
                 if metadata_str is None:
                     continue
+                logger.info("Got miner metadata, trying to parse..", miner_hotkey=hotkey, metadata_str=metadata_str)
                 metadata = MinerMetadata.from_compact(metadata_str)
                 miners_metadata[hotkey] = metadata
             except Exception as e:
-                logger.warning("Error while getting miner metadata, Skipping...", miner_hotkey = hotkey)
+                logger.warning("Error while getting miner metadata, Skipping...", miner_hotkey=hotkey, error={'exception_type': e.__class__.__name__,'exception_message': str(e), 'exception_args': e.args})
                 continue
 
     return miners_metadata

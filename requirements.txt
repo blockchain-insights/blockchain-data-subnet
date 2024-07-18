@@ -1,4 +1,4 @@
-bittensor==7.3.0
+bittensor==7.1.1
 python-bitcoinrpc
 bitcoin
 base58
@@ -12,4 +12,4 @@ PyYAML
 psycopg2-binary
 loguru
 pymgclient
-blockchain-data-subnet-shared-libs==0.0.12
+blockchain-data-subnet-shared-libs==0.0.20
