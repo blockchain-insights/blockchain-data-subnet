@@ -151,8 +151,13 @@ class Miner(BaseMinerNeuron):
         return synapse
 
     async def discovery(self, synapse: protocol.Discovery) -> protocol.Discovery:
+        function_start_time = time.time()  # Start timing the function execution
+
         try:
+            llm_discovery_start_time = time.time()  # Start timing llm_discovery
             discovery = self.llm.discovery_v1(network=self.config.network)
+            llm_discovery_end_time = time.time()  # End timing llm_discovery
+
             if discovery is None:
                 logger.error("Failed to query for discovery")
                 synapse.output = None
@@ -166,6 +171,7 @@ class Miner(BaseMinerNeuron):
                 block_height=discovery['funds_flow_model_ast_block'],
                 balance_model_last_block=discovery['balance_model_last_block'],
             )
+
             logger.info("Serving miner discovery output",
                         output={
                             'metadata': {
@@ -179,6 +185,12 @@ class Miner(BaseMinerNeuron):
         except Exception as e:
             logger.error('error', error=traceback.format_exc())
             synapse.output = None
+        finally:
+            function_end_time = time.time()  # End timing the function execution
+
+            # Log the execution times
+            logger.info(f"LLM discovery execution time: {llm_discovery_end_time - llm_discovery_start_time} seconds")
+            logger.info(f"Total function execution time: {function_end_time - function_start_time} seconds")
 
         return synapse
 
@@ -287,7 +299,12 @@ class Miner(BaseMinerNeuron):
         return blacklist.base_blacklist(self, synapse=synapse)
 
     async def discovery_blacklist(self, synapse: protocol.Discovery) -> typing.Tuple[bool, str]:
-        return blacklist.discovery_blacklist(self, synapse=synapse)
+        start_time = time.time()  # Start timing
+        result = blacklist.discovery_blacklist(self, synapse=synapse)  # Original function call
+        end_time = time.time()  # End timing
+        execution_time = end_time - start_time  # Calculate execution time
+        logger.info(f"discovery_blacklist execution time: {execution_time} seconds")  # Log execution time
+        return result  # Return the original function's result
 
     async def challenge_blacklist(self, synapse: protocol.Challenge) -> typing.Tuple[bool, str]:
         return blacklist.base_blacklist(self, synapse=synapse)

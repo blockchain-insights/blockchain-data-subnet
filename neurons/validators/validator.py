@@ -197,14 +197,14 @@ class Validator(BaseValidatorNeuron):
 
     def is_response_status_code_valid(self, response):
         hotkey = response.axon.hotkey
-        status_code = response.axon.status_code
-        status_message = response.axon.status_message
+        status_code = response.dendrite.status_code
+        status_message = response.dendrite.status_message
         if response.is_failure:
-            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="failure",  status_message=f"{status_message}", miner_ip = response.axon.ip)
+            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="failure",  status_message=f"{status_message}", status_code=f"{status_code}",  miner_ip = response.axon.ip, response=f"{response}")
         elif response.is_blacklist:
-            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="blacklist", status_message=f"{status_message}", miner_ip = response.axon.ip)
+            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="blacklist", status_message=f"{status_message}", status_code=f"{status_code}",   miner_ip = response.axon.ip)
         elif response.is_timeout:
-            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="timeout", miner_ip = response.axon.ip)
+            logger.info("Discovery response failure", miner_hotkey=hotkey, reason="timeout", status_code=f"{status_code}", miner_ip = response.axon.ip)
         return status_code == 200
 
     def is_response_valid(self, response: Discovery):
