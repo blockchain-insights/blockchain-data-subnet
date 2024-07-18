@@ -27,6 +27,8 @@ class MinerMetadata(Metadata):
         data_dict = {}
         for item in compact_str.split(','):
             key, value = item.split(':', 1)
+            if value == 'None':
+                continue
             data_dict[key] = value.strip("'")
         return MinerMetadata(**data_dict)
 
@@ -44,6 +46,8 @@ class ValidatorMetadata(Metadata):
         data_dict = {}
         for item in compact_str.split(','):
             key, value = item.split(':', 1)
+            if value == 'None':
+                continue
             data_dict[key] = value.strip("'")
         return ValidatorMetadata(**data_dict)
 
