@@ -1,4 +1,4 @@
-bittensor==6.12.1
+bittensor==7.3.0
 python-bitcoinrpc
 bitcoin
 base58
