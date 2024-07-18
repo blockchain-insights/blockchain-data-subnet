@@ -151,8 +151,14 @@ class BaseValidatorNeuron(BaseNeuron):
             while True:
                 if self.block - previous_block >= 10:
                     logger.info('step', step=self.step, block=self.block)
+
                     self.loop.run_until_complete(self.concurrent_forward())
-                    self.sync()
+
+                    try:
+                        self.sync()
+                    except Exception as e:
+                        logger.warning(f"Error during sync", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+
                     previous_block = self.block
                 if self.should_exit:
                     break
