@@ -149,23 +149,21 @@ class BaseValidatorNeuron(BaseNeuron):
         # This loop maintains the validator's operations until intentionally stopped.
         try:
             while True:
-                if self.block - previous_block >= 10:
-                    logger.info('step', step=self.step, block=self.block)
-
-                    self.loop.run_until_complete(self.concurrent_forward())
-
-                    try:
+                try:
+                    block = self.block
+                    if block - previous_block >= 10:
+                        logger.info('step', step=self.step, block=block)
+                        self.loop.run_until_complete(self.concurrent_forward())
                         self.sync()
-                    except Exception as e:
-                        logger.warning(f"Error during sync", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+                        previous_block = self.block
+                        if self.should_exit:
+                            break
+                        self.step += 1
 
-                    previous_block = self.block
-                if self.should_exit:
-                    break
-                self.step += 1
-                time.sleep(bt.__blocktime__)
-
-        # If someone intentionally stops the validator, it'll safely terminate operations.
+                    time.sleep(bt.__blocktime__)
+                except Exception as e:
+                    logger.warning(f"Error in validator loop", error={'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+                    time.sleep(bt.__blocktime__ * 10)
         except KeyboardInterrupt:
             self.axon.stop()
             logger.success("Validator killed by keyboard interrupt.")
