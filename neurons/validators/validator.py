@@ -260,7 +260,15 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="cross_validation_failed", score=0)
                 return 0
 
-            funds_flow_benchmark_result = benchmarks_result.get(uid_value)[MODEL_TYPE_FUNDS_FLOW]
+            def _try_get(_items, _uid_value, _key):
+                if isinstance(_items, dict):
+                    uid_items = _items.get(_uid_value, {})
+                    if isinstance(uid_items, dict):
+                        if _key in uid_items:
+                            return uid_items.get(_key)
+                return None
+
+            funds_flow_benchmark_result = _try_get(benchmarks_result, uid_value, MODEL_TYPE_FUNDS_FLOW)
             if funds_flow_benchmark_result is None:
                 score = self.metagraph.T[uid]/4
                 self.miner_uptime_manager.down(uid_value, hotkey)
@@ -270,10 +278,10 @@ class Validator(BaseValidatorNeuron):
             funds_flow_response_time, funds_flow_benchmark_is_valid = funds_flow_benchmark_result
             if not funds_flow_benchmark_is_valid:
                 self.miner_uptime_manager.down(uid_value, hotkey)
-                logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="funds_flow_benchmark_failed", score=0)
+                logger.info("Reward failed", miner_uid=uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="funds_flow_benchmark_failed", score=0)
                 return 0
 
-            balance_tracking_benchmark_result = benchmarks_result.get(uid_value)[MODEL_TYPE_BALANCE_TRACKING]
+            balance_tracking_benchmark_result = _try_get(benchmarks_result, uid_value, MODEL_TYPE_BALANCE_TRACKING)
             if balance_tracking_benchmark_result is None:
                 score = self.metagraph.T[uid]/4
                 self.miner_uptime_manager.down(uid_value, hotkey)
@@ -316,14 +324,19 @@ class Validator(BaseValidatorNeuron):
         min_time_response = self.validator_config.benchmark_timeout
         for item, response in zip(benchmarks_result.values(), responses):
             average_ping_time = ping(response.axon.ip, response.axon.port, attempts=10)[1]
-            f_max_time_response = max(max_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
-            f_min_time_response = min(min_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
 
-            b_max_time_response = max(max_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
-            b_min_time_response = min(min_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
+            f_max_time_response ,  b_max_time_response = 0, 0
+            f_min_time_response, b_min_time_response = 0, 0
 
-            max_time_response = f_max_time_response + b_max_time_response
-            min_time_response = f_min_time_response + b_min_time_response
+            if MODEL_TYPE_FUNDS_FLOW in item:
+                f_max_time_response = max(max_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
+                f_min_time_response = min(min_time_response, item[MODEL_TYPE_FUNDS_FLOW][0] - average_ping_time)
+            if MODEL_TYPE_BALANCE_TRACKING in item:
+                b_max_time_response = max(max_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
+                b_min_time_response = min(min_time_response, item[MODEL_TYPE_BALANCE_TRACKING][0] - average_ping_time)
+            if MODEL_TYPE_BALANCE_TRACKING in item and MODEL_TYPE_FUNDS_FLOW in item:
+                max_time_response = f_max_time_response + b_max_time_response
+                min_time_response = f_min_time_response + b_min_time_response
 
         if max_time_response == min_time_response:
             max_time_response += 0.1
