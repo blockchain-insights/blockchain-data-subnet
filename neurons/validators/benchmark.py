@@ -44,14 +44,7 @@ class BenchmarkValidator:
                         'diff': self.validator_config.benchmark_balance_tracking_query_diff - randint(0, 100),
                     }
                     responses = group_info['responses']
-
-
-
-                    logger.info("DEBUG - run_benchmarks 1", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r, _ in responses if r.output is not None] )
-
                     self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_tracking_script(network).strip(), benchmark_query_script_vars, responses, results)
-
-                    logger.info("DEBUG - run_benchmarks 2", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r, _ in responses if r.output is not None] )
 
             return results
         except Exception as e:

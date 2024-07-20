@@ -148,7 +148,7 @@ def get_miners_metadata(config, metagraph):
                 metadata_str = subtensor.get_commitment(config.netuid, 0)
                 if metadata_str is None:
                     continue
-                logger.info("Got miner metadata, trying to parse..", miner_hotkey=hotkey, metadata_str=metadata_str)
+
                 metadata = MinerMetadata.from_compact(metadata_str)
                 miners_metadata[hotkey] = metadata
             except Exception as e:
