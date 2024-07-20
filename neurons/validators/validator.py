@@ -219,7 +219,7 @@ class Validator(BaseValidatorNeuron):
             hotkey = response.axon.hotkey
             uid_value = int(uid) if isinstance(uid, np.ndarray) and uid.size == 1 else int(uid)
 
-            logger.info("DEBUG - get_reward 1", response=response)
+
 
             if not self.is_response_status_code_valid(response):
                 score = self.metagraph.T[uid]/4
@@ -241,6 +241,8 @@ class Validator(BaseValidatorNeuron):
             last_block_height = output.block_height
             balance_model_last_block = output.balance_model_last_block
             hotkey = response.axon.hotkey
+
+            logger.info("DEBUG - get_reward 1", response=response.output.balance_model_last_block)
 
             if self.block_height_cache[network] - last_block_height < 6:
                 logger.info("Reward failed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="block_height_invalid", score=0, block_height_cache=self.block_height_cache[network], last_block_height=last_block_height)
@@ -362,19 +364,19 @@ class Validator(BaseValidatorNeuron):
                 timeout=self.validator_config.discovery_timeout,
             )
 
-            logger.info("DEBUG - forward 1", responses=responses)
+            logger.info("DEBUG - forward 1", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r in responses if r.output is not None] )
 
             responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
 
-            logger.info("DEBUG - forward 2", responses=responses)
+            logger.info("DEBUG - forward 2",responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r in responses if r.output is not None] )
 
             benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
 
-            logger.info("DEBUG - forward 3", responses=responses)
+            logger.info("DEBUG - forward 3",responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r in responses if r.output is not None] )
 
             self.update_scorer_config(benchmarks_result, responses)
 
-            logger.info("DEBUG - forward  4", responses=responses)
+            logger.info("DEBUG - forward  4"  ,responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r in responses if r.output is not None] )
 
             self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 

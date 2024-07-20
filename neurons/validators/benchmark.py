@@ -1,3 +1,4 @@
+import json
 import traceback
 from collections import Counter
 from random import randint
@@ -15,9 +16,6 @@ class BenchmarkValidator:
         self.validator_config = validator_config
 
     def run_benchmarks(self, filtered_responses):
-
-        logger.info("DEBUG - run_benchmarks", filtered_responses=filtered_responses)
-
         try:
             response_processor = ResponseProcessor(self.validator_config)
             grouped_responses = response_processor.group_responses(filtered_responses)
@@ -47,11 +45,13 @@ class BenchmarkValidator:
                     }
                     responses = group_info['responses']
 
-                    logger.info("DEBUG - run_benchmarks 1", responses=responses)
+
+
+                    logger.info("DEBUG - run_benchmarks 1", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r, _ in responses if r.output is not None] )
 
                     self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_tracking_script(network).strip(), benchmark_query_script_vars, responses, results)
 
-                    logger.info("DEBUG - run_benchmarks 2", responses=responses)
+                    logger.info("DEBUG - run_benchmarks 2", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r, _ in responses if r.output is not None] )
 
             return results
         except Exception as e:
@@ -73,7 +73,7 @@ class BenchmarkValidator:
                     results[uid_value][benchmark_type] = (response_time, result == most_common_result)
 
                     if benchmark_type == MODEL_TYPE_BALANCE_TRACKING:
-                        logger.info("DEBUG - run_benchmark_type ", responses=responses, results=results)
+                        logger.info("DEBUG - run_benchmark_type ", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r, _ in responses if r.output is not None] , results=results)
 
             except Exception as e:
                 logger.error(f"Run benchmark failed", benchmark_type = benchmark_type, error=traceback.format_exc())
