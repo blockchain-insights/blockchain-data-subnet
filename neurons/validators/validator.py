@@ -163,7 +163,7 @@ class Validator(BaseValidatorNeuron):
             response_time += response.dendrite.process_time
 
             if response.output != expected_response:
-                logger.info("Cross validation failed",  miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="expected_response", response_output=response.output, expected_output=expected_response)
+                logger.info("Cross validation failed",  miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="expected_response")
                 return False, response_time
 
             logger.info("Cross validation passed", miner_hotkey=hotkey, miner_ip = response.axon.ip)

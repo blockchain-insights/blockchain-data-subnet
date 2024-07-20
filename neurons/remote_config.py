@@ -2,8 +2,6 @@ import os
 import time
 import json
 import requests
-import bittensor as bt
-import numpy as np
 import threading
 
 import insights
@@ -97,7 +95,7 @@ class MinerConfig(RemoteConfig):
         self.max_requests = 128
         self.min_request_period = 60
         self.stake_threshold = 5000
-        self.config_url = os.getenv("MINER_REMOTE_CONFIG_URL", 'https://chaininsightsaipreprod.blob.core.windows.net/minercfg/miner.json')
+        self.config_url = os.getenv("MINER_REMOTE_CONFIG_URL", 'https://chaininsightsaiprod.blob.core.windows.net/minercfg/miner.json')
         self.blockchain_sync_delta = 100
         self.is_grace_period = False
         self.set_weights = True
@@ -169,7 +167,7 @@ class ValidatorConfig(RemoteConfig):
         self.version_update = True
         self.balance_model_diff = 849008
 
-        self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://chaininsightsaipreprod.blob.core.windows.net/validatorcfg/validator.json')
+        self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://chaininsightsaiprod.blob.core.windows.net/validatorcfg/validator.json')
 
     def load_and_get_config_values(self):
         self.load_remote_config()
