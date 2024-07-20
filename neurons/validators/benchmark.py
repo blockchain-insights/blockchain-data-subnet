@@ -15,6 +15,9 @@ class BenchmarkValidator:
         self.validator_config = validator_config
 
     def run_benchmarks(self, filtered_responses):
+
+        logger.info("DEBUG - run_benchmarks", filtered_responses=filtered_responses)
+
         try:
             response_processor = ResponseProcessor(self.validator_config)
             grouped_responses = response_processor.group_responses(filtered_responses)
@@ -43,8 +46,12 @@ class BenchmarkValidator:
                         'diff': self.validator_config.benchmark_balance_tracking_query_diff - randint(0, 100),
                     }
                     responses = group_info['responses']
+
+                    logger.info("DEBUG - run_benchmarks 1", responses=responses)
+
                     self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_tracking_script(network).strip(), benchmark_query_script_vars, responses, results)
 
+                    logger.info("DEBUG - run_benchmarks 2", responses=responses)
 
             return results
         except Exception as e:
@@ -64,6 +71,10 @@ class BenchmarkValidator:
                     if uid_value not in results:
                         results[uid_value] = {}
                     results[uid_value][benchmark_type] = (response_time, result == most_common_result)
+
+                    if benchmark_type == MODEL_TYPE_BALANCE_TRACKING:
+                        logger.info("DEBUG - run_benchmark_type ", responses=responses, results=results)
+
             except Exception as e:
                 logger.error(f"Run benchmark failed", benchmark_type = benchmark_type, error=traceback.format_exc())
 

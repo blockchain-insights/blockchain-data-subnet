@@ -219,6 +219,8 @@ class Validator(BaseValidatorNeuron):
             hotkey = response.axon.hotkey
             uid_value = int(uid) if isinstance(uid, np.ndarray) and uid.size == 1 else int(uid)
 
+            logger.info("DEBUG - get_reward 1", response=response)
+
             if not self.is_response_status_code_valid(response):
                 score = self.metagraph.T[uid]/4
                 self.miner_uptime_manager.down(uid_value, hotkey)
@@ -360,10 +362,20 @@ class Validator(BaseValidatorNeuron):
                 timeout=self.validator_config.discovery_timeout,
             )
 
+            logger.info("DEBUG - forward 1", responses=responses)
+
             responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
+
+            logger.info("DEBUG - forward 2", responses=responses)
+
             benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
 
+            logger.info("DEBUG - forward 3", responses=responses)
+
             self.update_scorer_config(benchmarks_result, responses)
+
+            logger.info("DEBUG - forward  4", responses=responses)
+
             self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
             rewards = [
