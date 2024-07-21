@@ -143,24 +143,36 @@ class BaseValidatorNeuron(BaseNeuron):
         # Check that validator is registered on the network.
         self.sync()
 
-        logger.info(f"Validator starting", block = self.block)
-        previous_block = self.block
+        logger.info(f"Validator starting")
 
-        # This loop maintains the validator's operations until intentionally stopped.
         try:
             while True:
                 try:
-                    block = self.block
-                    if block - previous_block >= 10:
-                        logger.info('step', step=self.step, block=block)
-                        self.loop.run_until_complete(self.concurrent_forward())
-                        self.sync()
-                        previous_block = self.block
-                        if self.should_exit:
-                            break
-                        self.step += 1
+                    start_block = self.subtensor.get_current_block()
+                    logger.info('running forward loop', start_block=start_block)
+                    self.loop.run_until_complete(self.concurrent_forward())
+                    self.sync()
 
-                    time.sleep(bt.__blocktime__)
+                    if self.should_exit:
+                        break
+
+                    end_block = self.subtensor.get_current_block()
+
+                    block_elapsed = end_block - start_block
+                    logger.info('running forward loop', block_elapsed = block_elapsed)
+
+                    blocks_to_wait = 50
+                    if block_elapsed < blocks_to_wait:
+                        sleep_time = bt.__blocktime__ * (blocks_to_wait - block_elapsed)
+                        logger.warning(f"Block elapsed is less than 10 blocks, going to sleep", block_elapsed=block_elapsed,
+                                       sleep_time=sleep_time)
+                        time.sleep(sleep_time)
+
+                    if self.should_exit:
+                        break
+
+                    self.step += 1
+
                 except Exception as e:
                     logger.warning(f"Error in validator loop", error={'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
                     time.sleep(bt.__blocktime__ * 10)
