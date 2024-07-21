@@ -194,10 +194,10 @@ class BitcoinNode(Node):
                 balance_changes_by_address[address] += out_amount_by_address[address]
                 
         challenge = Challenge(model_type=MODEL_TYPE_BALANCE_TRACKING, block_height=block_height)
-
+        total_balance_change = sum(balance_changes_by_address.values())
         logger.info(f"Created balance tracking challenge", block_height=block_height)
 
-        return challenge, balance_changes_by_address
+        return challenge, total_balance_change
 
     def get_txn_data_by_id(self, txn_id: str):
         try:

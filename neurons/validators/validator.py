@@ -221,8 +221,6 @@ class Validator(BaseValidatorNeuron):
             hotkey = response.axon.hotkey
             uid_value = int(uid) if isinstance(uid, np.ndarray) and uid.size == 1 else int(uid)
 
-
-
             if not self.is_response_status_code_valid(response):
                 score = self.metagraph.T[uid]/4
                 self.miner_uptime_manager.down(uid_value, hotkey)
