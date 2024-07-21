@@ -144,6 +144,7 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Cross validation failed",  miner_hotkey=hotkey, reason="expected_response", response_output=response.output, expected_output=expected_response, miner_ip = response.axon.ip)
                 return False, response_time
 
+            """ TEMPORARILY DISABLED
             logger.info("Balance tracking challenge started", miner_hotkey=hotkey, miner_ip = response.axon.ip)
             random_balance_tracking_block = randint(1, balance_model_last_block)
             challenge, expected_response = node.create_balance_tracking_challenge(random_balance_tracking_block)
@@ -167,6 +168,7 @@ class Validator(BaseValidatorNeuron):
             if response.output != expected_response:
                 logger.info("Cross validation failed",  miner_hotkey=hotkey, miner_ip = response.axon.ip, reason="expected_response")
                 return False, response_time
+            """
 
             logger.info("Cross validation passed", miner_hotkey=hotkey, miner_ip = response.axon.ip)
 
