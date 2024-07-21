@@ -120,6 +120,7 @@ class Validator(BaseValidatorNeuron):
 
     def cross_validate(self, axon, node, start_block_height, last_block_height, balance_model_last_block):
         try:
+            logger.info("Funds flow challenge started", miner_ip = axon.ip, miner_hotkey=axon.hotkey)
             challenge, expected_response = node.create_funds_flow_challenge(start_block_height, last_block_height)
 
             response = self.dendrite.query(
@@ -143,6 +144,7 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Cross validation failed",  miner_hotkey=hotkey, reason="expected_response", response_output=response.output, expected_output=expected_response, miner_ip = response.axon.ip)
                 return False, response_time
 
+            logger.info("Balance tracking challenge started", miner_hotkey=hotkey, miner_ip = response.axon.ip)
             random_balance_tracking_block = randint(1, balance_model_last_block)
             challenge, expected_response = node.create_balance_tracking_challenge(random_balance_tracking_block)
             response = self.dendrite.query(
@@ -256,6 +258,7 @@ class Validator(BaseValidatorNeuron):
             else:
                 logger.info("Ping Test passed", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip, average_ping_time=average_ping_time)
 
+            logger.info("Cross validation started", miner_uid = uid_value, miner_hotkey=hotkey, miner_ip = response.axon.ip)
             cross_validation_result, _ = self.cross_validate(response.axon, self.nodes[network], start_block_height, last_block_height, balance_model_last_block)
             if cross_validation_result is None or not cross_validation_result:
                 self.miner_uptime_manager.down(uid_value, hotkey)

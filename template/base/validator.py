@@ -164,7 +164,7 @@ class BaseValidatorNeuron(BaseNeuron):
                     blocks_to_wait = 50
                     if block_elapsed < blocks_to_wait:
                         sleep_time = bt.__blocktime__ * (blocks_to_wait - block_elapsed)
-                        logger.warning(f"Block elapsed is less than 10 blocks, going to sleep", block_elapsed=block_elapsed,
+                        logger.warning(f"Block elapsed is less than {blocks_to_wait} blocks, going to sleep", block_elapsed=block_elapsed,
                                        sleep_time=sleep_time)
                         time.sleep(sleep_time)
 

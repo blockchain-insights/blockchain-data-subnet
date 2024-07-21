@@ -29,7 +29,7 @@ import random
 parser = argparse.ArgumentParser()
 bt.logging.add_args(parser)
 indexlogger = setup_logger("BitcoinNode")
-
+from neurons import logger
 
 class BitcoinNode(Node):
     def __init__(self, node_rpc_url: str = None):
@@ -168,6 +168,9 @@ class BitcoinNode(Node):
         return challenge.in_total_amount == in_total_amount and challenge.out_total_amount == out_total_amount
     
     def create_balance_tracking_challenge(self, block_height):
+
+        logger.info(f"Creating balance tracking challenge", block_height=block_height)
+
         block = self.get_block_by_height(block_height)
         block_data = parse_block_data(block)
         transactions = block_data.transactions
@@ -191,6 +194,9 @@ class BitcoinNode(Node):
                 balance_changes_by_address[address] += out_amount_by_address[address]
                 
         challenge = Challenge(model_type=MODEL_TYPE_BALANCE_TRACKING, block_height=block_height)
+
+        logger.info(f"Created balance tracking challenge", block_height=block_height)
+
         return challenge, balance_changes_by_address
 
     def get_txn_data_by_id(self, txn_id: str):
@@ -198,6 +204,7 @@ class BitcoinNode(Node):
             rpc_connection = AuthServiceProxy(self.node_rpc_url)
             return rpc_connection.getrawtransaction(txn_id, 1)
         except Exception as e:
+            logger.error(f"Failed to get transaction data by id", error={'exception_type': e.__class__.__name__, 'exception_message': str(e), 'exception_args': e.args})
             return None
 
     def create_in_memory_txn(self, tx_data):
