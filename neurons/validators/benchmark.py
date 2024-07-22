@@ -1,3 +1,4 @@
+import json
 import traceback
 from collections import Counter
 from random import randint
@@ -45,7 +46,6 @@ class BenchmarkValidator:
                     responses = group_info['responses']
                     self.run_benchmark_type(MODEL_TYPE_BALANCE_TRACKING, self.validator_config.get_benchmark_balance_tracking_script(network).strip(), benchmark_query_script_vars, responses, results)
 
-
             return results
         except Exception as e:
             logger.error("Run benchmark failed", error=traceback.format_exc())
@@ -64,6 +64,10 @@ class BenchmarkValidator:
                     if uid_value not in results:
                         results[uid_value] = {}
                     results[uid_value][benchmark_type] = (response_time, result == most_common_result)
+
+                    if benchmark_type == MODEL_TYPE_BALANCE_TRACKING:
+                        logger.info("DEBUG - run_benchmark_type ", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r, _ in responses if r.output is not None] , results=results)
+
             except Exception as e:
                 logger.error(f"Run benchmark failed", benchmark_type = benchmark_type, error=traceback.format_exc())
 
