@@ -1,3 +1,4 @@
+import os
 from typing import Optional, List
 
 import insights
@@ -34,7 +35,8 @@ class MinerMetadata(Metadata):
 
 class ValidatorMetadata(Metadata):
     cv: Optional[str] = None #code_version
-    ip: Optional[str] = None #api_ip
+    ip: Optional[str] = None #validator ip
+    aip: Optional[str] = None #validator aip ip
 
     b: Optional[int] = None
     v: Optional[int] = None
@@ -104,6 +106,7 @@ def store_validator_metadata(self):
         logger.info(f"Storing validator metadata")
         metadata =  ValidatorMetadata(
             ip=self.metagraph.axons[self.uid].ip,
+            aip = os.getenv("VALIDATOR_API_IP"),
             cv=insights.__version__,
         )
 
