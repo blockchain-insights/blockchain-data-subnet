@@ -1,100 +1,15 @@
-import traceback
-from contextlib import contextmanager
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean, inspect, \
-    MetaData, text
-from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session, relationship, selectinload, subqueryload, joinedload
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
+from sqlalchemy.orm import relationship, joinedload
 from datetime import datetime, timedelta
-from neurons import logger
+import traceback
+from loguru import logger
+from base_db_manager import BaseDBManager, Miners, Downtimes
 
-Base = declarative_base()
 
-class Miners(Base):
-    __tablename__ = 'miners'
-    id = Column(Integer, primary_key=True)
-    hotkey = Column(String, nullable=False)
-    uid = Column(Integer, nullable=False)
-    uptime_start = Column(DateTime, default=datetime.utcnow)
-    __table_args__ = (UniqueConstraint('hotkey', name='hotkey_uc'),)
-    downtimes = relationship('Downtimes', back_populates='miner', order_by="desc(Downtimes.start_time)")
-
-class Downtimes(Base):
-    __tablename__ = 'downtimes'
-    id = Column(Integer, primary_key=True)
-    miner_id = Column(Integer, ForeignKey('miners.id'))
-    start_time = Column(DateTime)
-    end_time = Column(DateTime, nullable=True)
-    miner = relationship('Miners', back_populates='downtimes')
-
-class MinerUptimeManager:
+class MinerUptimeManager(BaseDBManager):
     def __init__(self, db_url='sqlite:///miners.db'):
-        self.engine = create_engine(db_url)
-
-        if not self.compare_schemas(self.engine):
-            with self.engine.connect() as conn:
-                inspector = inspect(self.engine)
-                table_names = inspector.get_table_names()
-                for table_name in table_names:
-                    try:
-                        conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
-                        conn.commit()
-                    except ProgrammingError as e:
-                        logger.error(f"Failed to drop table {table_name}: {e}")
-
-        Base.metadata.create_all(self.engine)
-        self.session_factory = sessionmaker(bind=self.engine)
-        self.Session = scoped_session(self.session_factory)
+        super().__init__(db_url)
         self.immunity_period = 8000 * 12
-
-    def compare_schemas(self, engine):
-        # Reflect the database schema
-        metadata = MetaData()
-        metadata.reflect(bind=engine)
-
-        existing_tables = set(metadata.tables.keys())
-        model_tables = set(Base.metadata.tables.keys())
-
-        # Compare table names
-        if existing_tables != model_tables:
-            return False
-
-        inspector = inspect(engine)
-
-        for table_name in existing_tables.intersection(model_tables):
-            existing_columns = set(c['name'] for c in inspector.get_columns(table_name))
-            model_columns = set(c.name for c in Base.metadata.tables[table_name].columns)
-
-            # Compare columns
-            if existing_columns != model_columns:
-                return False
-
-            # Add more detailed comparison logic if needed
-            existing_constraints = {c['name']: c for c in inspector.get_unique_constraints(table_name)}
-            model_constraints = {c.name: c for c in Base.metadata.tables[table_name].constraints if isinstance(c, UniqueConstraint)}
-
-            if set(existing_constraints.keys()) != set(model_constraints.keys()):
-                return False
-
-            for name in existing_constraints.keys():
-                if existing_constraints[name]['column_names'] != list(model_constraints[name].columns.keys()):
-                    return False
-
-        return True
-
-
-    @contextmanager
-    def session_scope(self):
-        """Provide a transactional scope around a series of operations."""
-        session = self.Session()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
 
     def up(self, uid, hotkey):
         try:
@@ -172,7 +87,7 @@ class MinerUptimeManager:
                 return result
 
         except Exception as e:
-            logger.error("Error occurred during uptime calculation", miner_hotkey=miner.hotkey, error=traceback.format_exc())
+            logger.error("Error occurred during uptime calculation", miner_hotkey=hotkey, error=traceback.format_exc())
             raise e
 
     def get_uptime_scores(self, hotkey):
@@ -181,6 +96,5 @@ class MinerUptimeManager:
         month = 2629746
         result = self.calculate_uptimes(hotkey, [day, week, month])
         average = (result[day] + result[week] + result[month]) / 3
-        logger.debug('Uptime Scores', result = result)
+        logger.debug('Uptime Scores', result=result)
         return {'daily': result[day], 'weekly': result[week], 'monthly': result[month], 'average': average}
-

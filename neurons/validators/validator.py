@@ -37,12 +37,12 @@ from neurons.storage import store_validator_metadata
 from neurons.validators.benchmark import BenchmarkValidator
 from neurons.validators.scoring import Scorer
 from neurons.validators.uptime import MinerUptimeManager
+from neurons.validators.receipt import ReceiptManager
 from neurons.validators.utils.metadata import Metadata
 from neurons.validators.utils.ping import ping
 from neurons.validators.utils.synapse import is_discovery_response_valid
 from neurons.validators.utils.uids import get_uids_batch
 from template.base.validator import BaseValidatorNeuron
-from neurons.validators.receipt_client import ReceiptClient
 from neurons import logger
 
 
@@ -114,11 +114,11 @@ class Validator(BaseValidatorNeuron):
         self.sync_validator()
         self.uid_batch_generator = get_uids_batch(self, self.validator_config.sample_size)
         self.miner_uptime_manager = MinerUptimeManager(db_url=self.config.db_connection_string)
+        self.receipt_manager = ReceiptManager(db_url=self.config.db_connection_string)
         self.benchmark_validator = BenchmarkValidator(self.dendrite, self.validator_config)
         immunity_period = self.subtensor.immunity_period(self.config.netuid)
         logger.info("Immunity period", immunity_period=immunity_period)
         self.miner_uptime_manager.immunity_period = immunity_period
-        self.receipt_client = ReceiptClient(self.config.receipt_api_url)
 
     def cross_validate(self, axon, node, start_block_height, last_block_height, balance_model_last_block):
         try:
@@ -309,7 +309,7 @@ class Validator(BaseValidatorNeuron):
             process_time = funds_flow_response_time + balance_tracking_response_time
             worst_end_block_height = min(self.metadata.worst_funds_flow_end_block_height, self.metadata.worst_balance_tracking_end_block_height)
 
-            token_usage = self.receipt_client.get_token_usages(hotkey)
+            token_usage = self.receipt_manager.get_prompt_history_for_miner(hotkey)
             
             score = self.scorer.calculate_score(
                 hotkey,
@@ -391,8 +391,9 @@ class Validator(BaseValidatorNeuron):
                 logger.info("Forward failed", reason="no_valid_responses")
         except Exception as e:
             logger.error("Forward failed", reason="exception", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
+
     def get_max_token_usages(self):
-        response = self.receipt_client.get_token_usages()
+        response = self.receipt_manager.get_prompt_history_for_all_miners()
         eps = 1e-6
         
         token_usage = {
