@@ -305,14 +305,16 @@ class Validator(BaseValidatorNeuron):
             balance_tracking_response_time = balance_tracking_response_time - average_ping_time
 
             self.miner_uptime_manager.up(uid_value, hotkey)
-            uptime_score = self.miner_uptime_manager.get_uptime_scores(hotkey)
+            uptime_score = self.miner_uptime_manager.get_uptime_scores(self.metagraph, uid_value)
             process_time = funds_flow_response_time + balance_tracking_response_time
             worst_end_block_height = min(self.metadata.worst_funds_flow_end_block_height, self.metadata.worst_balance_tracking_end_block_height)
+
 
             token_usage = self.receipt_manager.get_prompt_history_for_miner(hotkey)
             
             score = self.scorer.calculate_score(
-                hotkey,
+                self.metagraph,
+                uid_value,
                 network,
                 process_time,
                 start_block_height,
