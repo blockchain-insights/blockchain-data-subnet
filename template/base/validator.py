@@ -30,6 +30,8 @@ from typing import List
 from traceback import print_exception
 
 from template.base.neuron import BaseNeuron
+from template.base.utils import weight_utils
+from template.base.utils.weight_utils import process_weights_for_netuid
 from template.mock import MockDendrite
 from template.utils.config import add_validator_args
 
@@ -156,17 +158,19 @@ class BaseValidatorNeuron(BaseNeuron):
                     if self.should_exit:
                         break
 
-                    end_block = self.subtensor.get_current_block()
+                    #end_block = self.subtensor.get_current_block()
 
-                    block_elapsed = end_block - start_block
-                    logger.info('running forward loop', block_elapsed = block_elapsed)
+                    #block_elapsed = end_block - start_block
+                    #logger.info('running forward loop', block_elapsed = block_elapsed)
 
+                    """
                     blocks_to_wait = 50
                     if block_elapsed < blocks_to_wait:
                         sleep_time = bt.__blocktime__ * (blocks_to_wait - block_elapsed)
                         logger.warning(f"Block elapsed is less than {blocks_to_wait} blocks, going to sleep", block_elapsed=block_elapsed,
                                        sleep_time=sleep_time)
                         time.sleep(sleep_time)
+                    """
 
                     if self.should_exit:
                         break
@@ -254,7 +258,7 @@ class BaseValidatorNeuron(BaseNeuron):
         (
             processed_weight_uids,
             processed_weights,
-        ) = bt.utils.weight_utils.process_weights_for_netuid(
+        ) = process_weights_for_netuid(
             uids=self.metagraph.uids,
             weights=raw_weights,
             netuid=self.config.netuid,
@@ -267,7 +271,7 @@ class BaseValidatorNeuron(BaseNeuron):
         (
             uint_uids,
             uint_weights,
-        ) = bt.utils.weight_utils.convert_weights_and_uids_for_emit(
+        ) = weight_utils.convert_weights_and_uids_for_emit(
             uids=processed_weight_uids, weights=processed_weights
         )
 
