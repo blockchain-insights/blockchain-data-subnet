@@ -7,7 +7,7 @@ class Scorer:
         self.config = config
         self.processing_times = { 'min_time': 1, 'max_time': 10 }
 
-    def calculate_score(self, hotkey, network,  process_time, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height, miner_distribution, uptime_avg, worst_end_block_height):
+    def calculate_score(self, metagraph, miner_uid, network,  process_time, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height, miner_distribution, uptime_avg, worst_end_block_height):
         process_time_score = self.calculate_process_time_score(process_time, self.config.benchmark_timeout)
         block_height_score = self.calculate_block_height_score(network, indexed_start_block_height, indexed_end_block_height, blockchain_last_block_height)
 
@@ -16,8 +16,17 @@ class Scorer:
         uptime_score = self.calculate_uptime_score(uptime_avg)
         final_score = self.final_score(process_time_score, block_height_score, block_height_recency_score, blockchain_score, uptime_score)
 
+        miner_ip = metagraph.axons[miner_uid].ip
+        miner_port = metagraph.axons[miner_uid].port
+        miner_hotkey = metagraph.hotkeys[miner_uid]
+        miner_coldkey = metagraph.coldkeys[miner_uid]
+        
         logger.info("Score calculated",
-                    hotkey=hotkey,
+                    miner_uid=miner_uid,
+                    miner_ip=miner_ip,
+                    miner_port=miner_port,
+                    miner_hotkey=miner_hotkey,
+                    miner_coldkey=miner_coldkey,
                     benchmark_process_time=process_time,
                     indexed_start_block_height=indexed_start_block_height,
                     indexed_end_block_height=indexed_end_block_height,
