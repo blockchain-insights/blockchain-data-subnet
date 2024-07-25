@@ -66,7 +66,7 @@ class BenchmarkValidator:
                     results[uid_value][benchmark_type] = (response_time, result == most_common_result)
 
                     if benchmark_type == MODEL_TYPE_BALANCE_TRACKING:
-                        logger.info("DEBUG - run_benchmark_type ", responses=[(r.axon.hotkey,   r.output.balance_model_last_block) for r, _ in responses if r.output is not None] , results=results)
+                        logger.info("DEBUG - run_benchmark_type ", responses=[{'miner_hotkey': r.axon.hotkey, 'last_block': r.output.balance_model_last_block} for r, _ in responses if r.output is not None] , results=results)
 
             except Exception as e:
                 logger.error(f"Run benchmark failed", benchmark_type = benchmark_type, error=traceback.format_exc())

@@ -154,10 +154,11 @@ class MinerUptimeManager:
                 result = {}
 
                 for period_second in period_seconds:
-                    adjusted_start = max(active_period_start, datetime.utcnow() - timedelta(seconds=period_second))
-                    if adjusted_start > active_period_end:
+                    if active_period_start > active_period_end:
                         result[period_second] = 1
                         continue
+                    
+                    adjusted_start = max(active_period_start, datetime.utcnow() - timedelta(seconds=period_second))
 
                     active_seconds = (active_period_end - adjusted_start).total_seconds()
                     total_downtime = sum(
@@ -166,21 +167,24 @@ class MinerUptimeManager:
                         if log.start_time >= adjusted_start and log.end_time and log.end_time <= active_period_end
                     )
                     actual_uptime_seconds = max(0, active_seconds - total_downtime)
-                    actual_period_second = min(period_second, active_seconds)
 
-                    result[period_second] = actual_uptime_seconds / actual_period_second if active_seconds > 0 else 0
+                    result[period_second] = actual_uptime_seconds / period_second if active_seconds > 0 else 0
                 return result
 
         except Exception as e:
             logger.error("Error occurred during uptime calculation", miner_hotkey=miner.hotkey, error=traceback.format_exc())
             raise e
 
-    def get_uptime_scores(self, hotkey):
+    def get_uptime_scores(self, metagraph, uid_value):
         day = 86400
         week = 604800
         month = 2629746
-        result = self.calculate_uptimes(hotkey, [day, week, month])
+        miner_ip = metagraph.axons[uid_value].ip
+        miner_port = metagraph.axons[uid_value].port
+        miner_hotkey = metagraph.hotkeys[uid_value]
+        miner_coldkey = metagraph.coldkeys[uid_value]
+        result = self.calculate_uptimes(miner_hotkey, [day, week, month])
         average = (result[day] + result[week] + result[month]) / 3
-        logger.debug('Uptime Scores', result = result)
+        logger.debug('Uptime Scores', miner_uid=uid_value, miner_ip = miner_ip, miner_port = miner_port,  miner_hotkey = miner_hotkey, miner_coldkey =miner_coldkey, result = result)
         return {'daily': result[day], 'weekly': result[week], 'monthly': result[month], 'average': average}
 
