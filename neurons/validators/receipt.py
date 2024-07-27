@@ -43,10 +43,8 @@ class ReceiptManager(BaseDBManager):
             'monthly': monthly_result
         }
 
-    def get_prompt_history_for_all_miners(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
-        current_time = datetime.utcnow()
+    def get_prompt_history_for_all_miners(self, metagraph) -> Dict[str, Dict[str, Dict[str, Any]]]:
         result = {}
-        metagraph = bittensor.metagraph()
         for miner_hotkey in metagraph.hotkeys:
             result[miner_hotkey] = self.get_prompt_history_for_miner(miner_hotkey)
         return result

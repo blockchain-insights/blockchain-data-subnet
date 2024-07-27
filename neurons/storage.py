@@ -106,11 +106,11 @@ def store_validator_metadata(self):
         logger.info(f"Storing validator metadata")
         metadata =  ValidatorMetadata(
             ip=self.metagraph.axons[self.uid].ip,
-            aip = os.getenv("VALIDATOR_API_IP"),
+            aip=os.getenv("VALIDATOR_API_IP", None),
             cv=insights.__version__,
         )
 
-        hotkey= self.wallet.hotkey.ss58_address
+        hotkey = self.wallet.hotkey.ss58_address
         subtensor.get_commitment = get_commitment
 
         existing_commitment = subtensor.get_commitment(self.config.netuid, self.uid)

@@ -309,7 +309,6 @@ class Validator(BaseValidatorNeuron):
             process_time = funds_flow_response_time + balance_tracking_response_time
             worst_end_block_height = min(self.metadata.worst_funds_flow_end_block_height, self.metadata.worst_balance_tracking_end_block_height)
 
-
             token_usage = self.receipt_manager.get_prompt_history_for_miner(hotkey)
             
             score = self.scorer.calculate_score(
@@ -375,7 +374,7 @@ class Validator(BaseValidatorNeuron):
             responses_to_benchmark = [(response, uid) for response, uid in zip(responses, uids) if self.is_response_valid(response)]
             benchmarks_result = self.benchmark_validator.run_benchmarks(responses_to_benchmark)
             self.update_scorer_config(benchmarks_result, responses)
-            self.get_max_token_usages()
+            self.get_max_token_usages(self.metagraph)
             self.block_height_cache = {network: self.nodes[network].get_current_block_height() for network in self.networks}
 
             rewards = [
@@ -394,8 +393,8 @@ class Validator(BaseValidatorNeuron):
         except Exception as e:
             logger.error("Forward failed", reason="exception", error = {'exception_type': e.__class__.__name__,'exception_message': str(e),'exception_args': e.args})
 
-    def get_max_token_usages(self):
-        response = self.receipt_manager.get_prompt_history_for_all_miners()
+    def get_max_token_usages(self, metagraph):
+        response = self.receipt_manager.get_prompt_history_for_all_miners(metagraph)
         eps = 1e-6
         
         token_usage = {

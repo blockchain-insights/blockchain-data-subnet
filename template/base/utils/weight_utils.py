@@ -181,10 +181,12 @@ def process_weights_for_netuid(
 
     bittensor.logging.debug("non_zero_weights", non_zero_weights)
 
+
     # Compute the exclude quantile and find the weights in the lowest quantile
-    max_exclude = max(0, len(non_zero_weights) - min_allowed_weights) / len(
-        non_zero_weights
-    )
+    if non_zero_weights.size == 1:
+        max_exclude = max(0, 1 - min_allowed_weights)
+    else:
+        max_exclude = max(0, len(non_zero_weights) - min_allowed_weights) / len(non_zero_weights)
     exclude_quantile = min([quantile, max_exclude])
     lowest_quantile = np.quantile(non_zero_weights, exclude_quantile)
     bittensor.logging.debug("max_exclude", max_exclude)

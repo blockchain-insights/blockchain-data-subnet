@@ -165,7 +165,7 @@ class ValidatorConfig(RemoteConfig):
 
         self.version = None
         self.version_update = True
-        self.balance_model_diff = 849008
+        self.balance_model_diff = 860000
 
         self.config_url = os.getenv("VALIDATOR_REMOTE_CONFIG_URL", 'https://chaininsightsaiprod.blob.core.windows.net/validatorcfg/validator.json')
 
@@ -207,7 +207,7 @@ class ValidatorConfig(RemoteConfig):
         self.is_grace_period = self.get_config_value('is_grace_period', False)
         self.sample_size = self.get_config_value('sample_size', 256)
 
-        self.balance_model_diff = self.get_config_value('balance_model_diff', 849008)
+        self.balance_model_diff = self.get_config_value('balance_model_diff', 860000)
 
         return self
 
