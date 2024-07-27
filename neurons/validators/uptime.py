@@ -37,8 +37,9 @@ class MinerUptimeManager:
                 table_names = inspector.get_table_names()
                 for table_name in table_names:
                     try:
-                        conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
-                        conn.commit()
+                        if table_name in Base.metadata.tables:
+                            conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
+                            conn.commit()
                     except ProgrammingError as e:
                         logger.error(f"Failed to drop table {table_name}: {e}")
 
@@ -54,11 +55,10 @@ class MinerUptimeManager:
 
         existing_tables = set(metadata.tables.keys())
         model_tables = set(Base.metadata.tables.keys())
-
+        logger.info("compare_schemas start")
         # Compare table names
-        if existing_tables != model_tables:
+        if not model_tables <= existing_tables:  
             return False
-
         inspector = inspect(engine)
 
         for table_name in existing_tables.intersection(model_tables):
