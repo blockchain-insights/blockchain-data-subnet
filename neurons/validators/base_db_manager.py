@@ -1,8 +1,8 @@
 import psycopg2
-from sqlalchemy import create_engine, inspect, Column, Integer, DateTime, String, Float, ForeignKey, UniqueConstraint
+from sqlalchemy import create_engine, inspect, Column, Integer, DateTime, String, Float, ForeignKey, UniqueConstraint, MetaData, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from contextlib import contextmanager
 from datetime import datetime
 from loguru import logger
@@ -80,14 +80,56 @@ class BaseDBManager:
         try:
             with self.engine.connect() as conn:
                 inspector = inspect(conn)
-                if not inspector.get_table_names():
-                    Base.metadata.create_all(self.engine)
-                    logger.info("Database tables created successfully.")
-                else:
-                    logger.info("Database already initialized.")
+                if not self.compare_schemas(self.engine):
+                    with self.engine.connect() as conn:
+                        inspector = inspect(self.engine)
+                        table_names = inspector.get_table_names()
+                        for table_name in table_names:
+                            try:
+                                if table_name in Base.metadata.tables:
+                                    conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
+                                    conn.commit()
+                            except ProgrammingError as e:
+                                logger.error(f"Failed to drop table {table_name}: {e}")
+
+                Base.metadata.create_all(self.engine)
         except OperationalError as e:
             logger.error(f"Database connection error: {e}")
             raise
+        
+    def compare_schemas(self, engine):
+        # Reflect the database schema
+        metadata = MetaData()
+        metadata.reflect(bind=engine)
+
+        existing_tables = set(metadata.tables.keys())
+        model_tables = set(Base.metadata.tables.keys())
+        logger.info("compare_schemas start")
+        # Compare table names
+        if not model_tables <= existing_tables:  
+            return False
+        inspector = inspect(engine)
+
+        for table_name in existing_tables.intersection(model_tables):
+            existing_columns = set(c['name'] for c in inspector.get_columns(table_name))
+            model_columns = set(c.name for c in Base.metadata.tables[table_name].columns)
+
+            # Compare columns
+            if existing_columns != model_columns:
+                return False
+
+            # Add more detailed comparison logic if needed
+            existing_constraints = {c['name']: c for c in inspector.get_unique_constraints(table_name)}
+            model_constraints = {c.name: c for c in Base.metadata.tables[table_name].constraints if isinstance(c, UniqueConstraint)}
+
+            if set(existing_constraints.keys()) != set(model_constraints.keys()):
+                return False
+
+            for name in existing_constraints.keys():
+                if existing_constraints[name]['column_names'] != list(model_constraints[name].columns.keys()):
+                    return False
+
+        return True
 
     @contextmanager
     def session_scope(self):

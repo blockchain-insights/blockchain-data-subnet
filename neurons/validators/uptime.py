@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship, joinedload
 from datetime import datetime, timedelta
 import traceback
 from loguru import logger
-from base_db_manager import BaseDBManager, Miners, Downtimes
+from neurons.validators.base_db_manager import BaseDBManager, Miners, Downtimes
 
 
 class MinerUptimeManager(BaseDBManager):

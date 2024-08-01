@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from loguru import logger
 import bittensor
 from typing import Any, List, Dict
-from base_db_manager import BaseDBManager, Receipts
+from neurons.validators.base_db_manager import BaseDBManager, Receipts
 
 
 class ReceiptManager(BaseDBManager):
