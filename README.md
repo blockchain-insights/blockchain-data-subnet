@@ -1,154 +1,302 @@
 <div align="center">
 
-# **Bittensor Blockchain Insights Subnet** <!-- omit in toc -->
-<img src="docs/imgs/logo.png" alt="Logo" title="Logo" height="256"  />
+# **Bittensor Blockchain Insights Subnet**
 
-[![Discord Chat](https://img.shields.io/discord/308323056592486420.svg)](https://discord.gg/bittensor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+<img src="docs/imgs/logo.png" alt="Logo" title="Logo" height="256" />
+
+[![Join our Discord Community](https://img.shields.io/discord/308323056592486420.svg)](https://discord.gg/mVz5qNRf)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## Unlocking the Power of Blockchain Data <!-- omit in toc -->
+## Blockchain Index Artificial Intelligence
 
-[Discord](https://discord.gg/bittensor) • [Subnet](https://taostats.io/subnets/netuid-15/) • [Research](https://bittensor.com/whitepaper)
+[Blockchain Insights Website](https://www.chain-insights.ai/)
+
+[Join us on Discord](https://discord.gg/mVz5qNRf)
+
+Built with [Bittensor $TAO](https://bittensor.com) • [Documentation](https://docs.bittensor.com/) • [Explore the Subnet](https://taostats.io/subnets/netuid-15/)
+
 </div>
 
-### Table of Contents <!-- omit in toc -->
-- [Overview](#Blockchain-insights-overview)
-- [Instalation & Configuration](#instalation)
-- [Development Roadmap](#Project-roadmap)
-- [High Level Architecture](#High-level-architecture)
-- [License](#license)
+### Table of Contents
+
+- [**Bittensor Blockchain Insights Subnet**](#bittensor-blockchain-insights-subnet)
+  - [Blockchain Index Artificial Intelligence](#blockchain-index-artificial-intelligence)
+    - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Problem We Solve](#problem-we-solve)
+    - [Increase Adoption by Using Simple Prompts](#increase-adoption-by-using-simple-prompts)
+    - [Use Cases](#use-cases)
+  - [State of Blockchain Graph Indexes](#state-of-blockchain-graph-indexes)
+  - [AI LLM Challenges \& Validation Mechanisms](#ai-llm-challenges--validation-mechanisms)
+    - [Bearer Scoring Explained](#bearer-scoring-explained)
+      - [Key Aspects of Bearer Scoring:](#key-aspects-of-bearer-scoring)
+      - [Implementation in Blockchain Insights Subnet:](#implementation-in-blockchain-insights-subnet)
+  - [High-Level Architecture](#high-level-architecture)
+    - [System Context](#system-context)
+    - [Containers Diagram](#containers-diagram)
+  - [Market](#market)
+    - [Validator API](#validator-api)
+    - [CHAT API](#chat-api)
+    - [CHAT UI for Subnet 15](#chat-ui-for-subnet-15)
+      - [White Label License](#white-label-license)
+  - [Development Roadmap](#development-roadmap)
+    - [Milestones:](#milestones)
+  - [Installation \& Configuration](#installation--configuration)
+    - [Validator \& Miners Installation](#validator--miners-installation)
+    - [Miners LLM-ENGINE installation](#miners-llm-engine-installation)
+    - [Validators API Installation](#validators-api-installation)
+  - [License](#license)
+
 ---
 
-## Blockchain Insights Overview
-Blockchain Insights Subnet is an innovative project focusing on transforming raw blockchain data into structured graph models. This project aims to provide comprehensive insights into various blockchain activities, including simple transactions, DeFi protocol transactions, and NFT exchanges.
+## Overview
 
-### Features
-- **Data Analytics:**
-  - **Desktop Application:** Enables data analytics queries and result visualization.
-    - **Native Tokens and ERC-20 Token Insights:** Provides analysis for native tokens and ERC-20 token transactions.
-    - **DeFi and NFT Insights:** Provides analysis for decentralized finance and non-fungible token transactions.
-    - **Customizable Queries:** Allows users to execute tailored queries for specific data analysis needs.
-  - **API Support:**
-    - **Predefined Queries:** Offers a set of standard queries for common analytics tasks.
-    - **Cypher Endpoint:** Enables custom query execution for advanced data analysis.
-- **Graph Model Transformation:**
-  - **Funds Flow Graph Model:** Visualizes monetary movements between addresses or accounts.
-  - **Extensible Graph Model:** Allows adding new models to support diverse data analysis needs.
-- **Blockchain Support:**
-  - **Bitcoin-like UTXO Blockchains:** Integration with Bitcoin and other UTXO-based blockchains (etc. Bitcoin, Litecoin, Dogecoin and more).
-  - **Ethereum and EVM-Compatible Blockchains:** Compatibility with Ethereum, including Layer 2 solutions (etc. Ethereum, Avax, Polygon, Arbitrum and more).
----
-## Instalation
-Instalation files and instructions can be found in the [blockchain data subnet ops](https://github.com/blockchain-insights/blockchain-data-subnet-ops) repository.
+The Blockchain Insights Subnet is a cutting-edge project dedicated to converting raw blockchain data into structured graph models, offering in-depth insights into blockchain activities such as transactions, DeFi protocol operations, and NFT exchanges.
 
-## Project Roadmap
-Development of the Blockchain Insights Subnet is divided into four streams, each with its own objectives and milestones. These streams are:
-- **[BI]** Blockchain Integrations
-- **[AI]** Intelligence
-- **[QS]** Query Studio
-- **[UE]** User Experience
+## Problem We Solve
 
-The following sections outline the objectives and milestones for each stream.
-- **Milestone 0**
-  - [BI] Launch the subnet with a support for the Bitcoin blockchain.
-  - [AI] Develop and integrate the funds flow graph model for Bitcoin data analysis.
-- **Milestone 1**
-  - [BI] Add DOGE blockchain support.
-  - [AI] Refine validator scoring and weighting mechanisms.
-  - [QS] Launch a basic public API for Query Studio.
-  - [UE] Enhance documentation and upgrade infrastructure.
-- **Milestone 2**
-  - [BI] Integrate LTC blockchain support.
-  - [QS] Extend Query Studio's public API functionalities.
-  - [HR] Grow the team and introduce bounties for key feature development.
-  - [UE] Further refine documentation and infrastructure.
-- **Next Milestones**
-  - TBA
+While companies like [ARKHAM Intelligence](https://www.arkhamintelligence.com/) and specialized investigation agencies such as [Elliptic](https://www.elliptic.co/crypto-blockchain-intelligence) provide proprietary machine learning models for blockchain intelligence, they lack user-friendly interfaces for non-experts. These services are often complex, requiring significant expertise to interpret data.
 
-## High Level Architecture
-Description of the Blockchain Insights Subnet's high-level architecture, including the system context and container diagrams.
+Though Open Source LLM models like GPT-4o offer advanced language capabilities, they struggle to accurately retrieve and process real-time blockchain data. Tools like [LangChain](https://www.langchain.com/) enable **RAG** (Retrieval Augmented Generation), allowing real-time data retrieval. However, effective use still demands complex prompt engineering and fine-tuning to generate accurate Cypher, GraphQL, SQL, and API queries.
+
+Another challenge is that LLM models can hallucinate, producing plausible but incorrect responses. Without proper context and fine-tuning, the generated queries may fail, particularly when working with specific technologies like Cypher or GraphQL.
+
+Additionally, much of the valuable blockchain data is centralized and developed by closed-source experts, creating barriers to broader adoption and innovation.
+
+### Increase Adoption by Using Simple Prompts
+
+The rapid expansion of blockchain technology and multi-layer networks has introduced complex challenges related to the vast amounts of data generated across different blockchain ecosystems. As decentralized applications, DeFi protocols, and NFTs continue to grow, the need for structured, actionable insights from raw blockchain data becomes critical. Traditional data analysis methods often struggle to keep up with the speed and complexity of blockchain transactions, leading to fragmented and inefficient data processing. This creates significant barriers for developers, researchers, and businesses aiming to extract meaningful insights, optimize their operations, or develop innovative solutions in the blockchain space.
+
+Moreover, the lack of standardized data models and the siloed nature of different blockchain networks further exacerbate these issues. As blockchain ecosystems become increasingly interconnected, a system that can seamlessly integrate data from various sources into a unified, easy-to-analyze format is essential. Without such a solution, stakeholders are left navigating a convoluted landscape of inconsistent data, which hampers their ability to make informed decisions and fully leverage blockchain technology.
+
+### Use Cases
+
+1. **DeFi Analytics**: Understanding the flow of funds across different protocols is crucial for risk assessment, market analysis, and strategic decision-making in decentralized finance (DeFi). The Blockchain Insights Subnet enables comprehensive analysis of DeFi transactions by transforming raw blockchain data into structured graph models, allowing users to visualize asset movements across various DeFi protocols, identify trends, detect anomalies, and optimize strategies.
+
+2. **Smart Contract Analysis**: The explosive growth of NFTs and smart contracts has created a new market with unique dynamics. The Blockchain Insights Subnet facilitates in-depth analysis of NFT and smart contract transactions, enabling users to track ownership changes, evaluate the performance of specific assets or collections, and gain insights into market trends.
+
+3. **Cross-Chain Data Integration**: As more projects embrace multi-chain strategies, the ability to integrate and analyze data from different blockchain networks becomes increasingly important. The Blockchain Insights Subnet supports data integration from various blockchains, including Bitcoin, Ethereum, and Layer 2 solutions like Polygon and Arbitrum. This cross-chain data aggregation enables users to perform holistic analyses, develop cross-chain applications, and enhance interoperability across the blockchain ecosystem.
+
+4. **Compliance and Auditing**: Ensuring compliance with regulatory standards is a significant challenge for businesses operating in the blockchain space. The Blockchain Insights Subnet provides tools for tracking and analyzing transactions across multiple blockchains, simplifying the process of auditing activities, monitoring compliance, and generating reports for regulatory authorities. This capability is essential for maintaining transparency and trust in decentralized systems.
+
+5. **Machine Learning and AI Applications**: The structured data generated by the Blockchain Insights Subnet can be leveraged for advanced machine learning and AI applications. By providing clean, organized datasets, the platform enables the development of predictive models, automated trading strategies, and other AI-driven solutions that operate efficiently within the blockchain environment. This opens up new possibilities for innovation and optimization in the blockchain space.
+
+6. **Transaction Monitoring and Fraud Detection**: In the fast-paced world of cryptocurrency, detecting fraudulent activities and monitoring transactions in real-time is crucial. The Blockchain Insights Subnet can be used to continuously monitor blockchain transactions for signs of fraud, such as unusual patterns, large or suspicious transfers, and attempts to obfuscate the origin of funds. By leveraging advanced graph models and machine learning, businesses can quickly identify and respond to potential threats, helping to prevent financial crimes and enhance security.
+
+8. **Tokenomics Analysis**: For projects that issue their own tokens, understanding the economics of token supply and demand is critical. The Blockchain Insights Subnet can provide detailed insights into token distribution, liquidity, and market movements. This information is vital for project developers, investors, and analysts who need to assess the health and viability of a blockchain project. By analyzing the flow of tokens within the ecosystem, stakeholders can make informed decisions about token management and future developments.
+
+
+These use cases illustrate the broad applicability of the Blockchain Insights Subnet in addressing data challenges inherent in the blockchain ecosystem, empowering users to unlock the full potential of blockchain technology.
+
+## State of Blockchain Graph Indexes
+
+Some companies specialize in indexing blockchain data, such as [BitQuery](https://bitquery.io/), providing services to experts, exchanges, investigation agencies, and investment firms that can afford these very expensive solutions.
+
+[TheGraph](https://thegraph.com/) token [$GRT](https://www.coingecko.com/en/coins/the-graph), a crypto project with over a billion-dollar market cap, provides a decentralized graph of many blockchains. However, while these are community-driven, critical indexed data for fund flow and advanced algorithm detection—such as PageRank, community detection, anomaly detection, centrality measures, correlation analysis, trend detection, Louvain, Jaccard similarity, shortest path, and others—are often missing.
+
+When comparing [Neo4J](https://neo4j.com/) with [Memgraph](https://memgraph.com/) for graph indexing, Neo4J is the most popular and cost-effective. However, Memgraph, which uses in-memory processing instead of disk storage, improves query speed by 100x, though it requires expensive servers with fast memory. For example, the Bitcoin blockchain currently requires 1.6TB of RAM and EVM use 3.2TB of RAM and continues to grow every day.
+
+Blockchain Insights holds bi-weekly sessions with Memgraph's CTO and engineers to discuss potential improvements, issues, and engineering challenges, as Blockchain Insights uses Memgraph and MAGE with one of the largest known databases, exceeding 1.6TB+.
+
+Use Case: [Amboss Technologies](https://amboss.space/) uses Memgraph Graph Database Servers with live streaming for transaction processing on the [Lightning Network](https://lightning.network/).
+
+Subnet 15 provides templates for indexing Bitcoin and EVM (Ethereum) blockchains. Miners can modify and enhance these templates to improve and add new results.
+
+## AI LLM Challenges & Validation Mechanisms
+
+We provide an LLM-ENGINE module template written in Python using LangChain with engineered prompts designed to work with GPT-4o. This module utilizes [Corcel Subnet 18 API](https://corcel.io/) or [OpenAI API](https://openai.com/).
+
+Miners are challenged to improve the LLM-ENGINE by adding data, refining prompts, and fine-tuning models to respond to user prompts with the most valuable and verifiable data.
+
+Validators use proof-of-inference (zk-ML) to ensure that Miners are using an LLM model to generate prompts and that responses are not altered or tampered with. In addition to proof-of-inference, we also implement **bearer scoring**, which assesses the relevance and accuracy of the data retrieved by the LLM. This scoring mechanism ensures that the responses generated by the LLM are not only accurate but also contextually appropriate, improving the overall quality of the output.
+
+Miners must provide the source of data and queries used to obtain the response so validators can verify the accuracy with a provided API from Subnet 15, which connects to most blockchain and crypto APIs to generate a similarity score. The best similarity score response, validated by both proof-of-inference and bearer scoring, is provided to the end-user.
+
+### Bearer Scoring Explained
+
+**Bearer scoring** is a mechanism used to assess the quality, relevance, and accuracy of the data retrieved or generated by an AI model, particularly in the context of blockchain intelligence and large language models (LLMs). The term "bearer" refers to the entity—usually an LLM or a mining node—that is responsible for producing or providing data in response to a query. The bearer scoring system is designed to evaluate the effectiveness of this data in meeting the specific requirements of the query.
+
+#### Key Aspects of Bearer Scoring:
+
+1. **Relevance**:
+   - Bearer scoring evaluates how relevant the data provided by the LLM is to the user's query. It considers whether the information directly addresses the prompt and how well it aligns with the context of the request. High relevance scores are given to responses that closely match the intended output and provide meaningful, contextually appropriate information.
+
+2. **Accuracy**:
+   - The accuracy aspect of bearer scoring ensures that the data or response generated by the LLM is factually correct and up-to-date. In the context of blockchain data, this involves verifying the correctness of transactions, the accuracy of balances, and the validity of the blockchain's state as reported by the LLM. The scoring process may involve cross-referencing with external data sources or databases to ensure that the information is precise.
+
+3. **Completeness**:
+   - This component of bearer scoring assesses whether the response fully addresses the query without omitting important details. A response that is incomplete or only partially answers the query will receive a lower score, encouraging miners to ensure that their LLM-generated outputs are thorough and comprehensive.
+
+4. **Efficiency**:
+   - Efficiency measures how effectively the LLM processes and retrieves the necessary data within an acceptable timeframe. Responses that are generated quickly and with minimal computational overhead, yet still maintain high relevance and accuracy, are rewarded with higher scores. This aspect is particularly important in scenarios where real-time or near-real-time data is required.
+
+5. **Consistency**:
+   - Consistency refers to the ability of the LLM to produce similar high-quality responses when queried multiple times under the same or similar conditions. Bearer scoring evaluates whether the LLM can consistently generate reliable data across different sessions, ensuring that users receive dependable outputs over time.
+
+#### Implementation in Blockchain Insights Subnet:
+
+In the Blockchain Insights Subnet, bearer scoring is integrated into the validation process to enhance the reliability and trustworthiness of responses generated by LLMs. Miners are encouraged to optimize their LLM-ENGINEs by focusing on these key aspects, improving the overall performance of the subnet. Validators then use bearer scoring alongside other validation mechanisms, such as proof-of-inference and similarity scoring, to determine the best possible response to deliver to the end-user.
+
+The result is a more robust and user-friendly blockchain intelligence platform that delivers precise, contextually appropriate, and timely insights, even in complex or high-stakes scenarios.
+
+## High-Level Architecture
+
+The high-level architecture of the Blockchain Insights Subnet includes system context and container diagrams.
 
 ### System Context
-<img src="docs/imgs/hla_system_context.png" alt="System Context Diagram" title="System Context Diagram" height="380" />
 
-#### MINERS
-- Miners in the Blockchain Insights subnet are tasked with the crucial job of transforming raw blockchain data into structured graph models. These models are not limited to simple transactions; they extend to encompass DeFi protocol transactions and NFT exchanges, providing a comprehensive view of asset flow. The funds flow graph model is a prime example of their work, offering a detailed visualization of monetary movements between various addresses or accounts. Through these models, miners enable the network to map and scrutinize the complex web of blockchain interactions.
+- **Miners:** Transform raw blockchain data into structured graph models, encompassing simple transactions, DeFi protocols, and NFT exchanges, enabling detailed visualizations of monetary movements.
+  
+- **Protocol:** Defines the rules for data exchange between miners and validators, ensuring consistent and interoperable data formats within the network.
 
-#### PROTOCOL
-- The protocol is a defined set of rules for data exchange between miners and validators in the Blockchain Insights subnet. It governs how miners serve data in response to queries from validators, APIs, or other subnets. This protocol delineates the data contract, specifying the structure and format of data to be exchanged, ensuring consistency and interoperability within the network's operations.
+- **Validators:** Route queries between miners, other subnets, and APIs. They also rank miners based on data accuracy and performance, maintaining high standards of data quality.
 
-#### Validators
-- Within the blockchain insights subnet, validators perform a crucial, multifaceted role. They act as a proxy, efficiently routing queries between miners, other subnets, and APIs. In addition to this intermediary function, validators are responsible for grouping miners. This grouping is based on the specific blockchain domains and graph model types that the miners specialize in, optimizing the subnet's query handling capabilities. Moreover, validators rank these miners, taking into account the correctness and performance of the data they provide. This ranking ensures that the subnet maintains high standards of data quality and performance, thereby upholding the overall integrity and reliability of the blockchain insights generated.
+- **Subnets:** Distinct segments of the Bittensor network, each capable of querying the blockchain insights subnet for specific data and analytics.
 
-#### Subnets
-- Subnets are distinct segments of the Bittensor network, each able to query and interact with the blockchain insights subnet for specific data and analytical purposes.
+- **Users:** Interact with the Blockchain Insights Subnet through interfaces like APIs.
 
-#### Query Studio
-- Query Studio is a user-friendly application in the Blockchain Insights subnet for executing data analytics queries and visualizing results.
+### Containers Diagram
 
-#### Users
-- End-users or clients interacting with the Blockchain Insights subnet, through interfaces like the Query Studio or API.
+![Container Diagram](docs/imgs/subnet15.png)
 
-### Container Diagram
+- **Blockchain Node:** Maintains a copy of the blockchain, processes transactions, and participates in consensus mechanisms.
 
-<img src="docs/imgs/hla_container_context.png" alt="Container Diagram" title="Container Diagram" height="320" />
+- **Indexers:** Process blockchain data into graph-based models, facilitating complex data analysis within the subnet.
 
-#### Blockchain Node
-- Maintains a copy of the blockchain, processes transactions, and participates in consensus mechanisms.
+- **Graph Databases - Neo4J or Memgraph with MAGE:** Utilizes Memgraph and MAGE for in-memory graph database operations, supporting Cypher queries and advanced graph algorithms. MAGE's integration with NVIDIA GPUs accelerates graph analytics, enhancing performance for large-scale data analysis.
 
-#### Indexer
-- The Indexer is a component that processes blockchain data, converting it into graph-based models for enhanced query capabilities. It serves as a bridge between raw data and structured insights, enabling complex data analysis within the blockchain insights subnet.
+- **Miner:** Provides data to validators through a predefined protocol, specializing in specific blockchains and graph models to ensure accurate and efficient data handling.
 
-#### Graph Model - Memgraph and MAGE
-- The Graph Model in the blockchain insights subnet leverages Memgraph, an in-memory graph database that supports the creation of snapshots on disk. This enables the execution of Cypher queries, which are used to interrogate the graph database, allowing for complex data relationship analysis and insights.
-- Memgraph Advanced Graph Extensions, or MAGE, is a vital addition to this system. It is an open-source library of graph algorithms that aims to become a leading solution in the field by providing a user-friendly interface across multiple programming languages​​. MAGE facilitates the extension of graph database functionalities, enabling users to quickly implement a wide range of graph algorithms essential for advanced analytics​​.
-- Furthermore, MAGE can leverage the GPU for accelerated execution of graph algorithms when used with the Memgraph X NVIDIA cuGraph version of the library, which enhances performance significantly, especially for large-scale graph analytics​​. This feature is particularly relevant for operations that require intensive computation, like those needed for analyzing blockchain data.
-- By integrating MAGE, the blockchain insights subnet can benefit from the shared innovations of developers through custom Cypher procedures, which enrich the community's analytical capabilities​​. The use of NVIDIA GPU support with Memgraph makes it a robust solution for processing and analyzing real-time data streams in the blockchain insights subnet, ensuring fast and efficient data handling.
+- **LLM-ENGINE**: This Module is the core of the Blockchain intelligence with RAG (Retrieval Augmented Generation) and AI LLM Model engineered prompts that send LLM responses. Miners are challenged to improve, add blockchains, graph, APIs, and databases to answer any user questions (prompts).
 
-#### Miner
-- Serves as the data provider to validators through a predefined PROTOCOL. Miners can be of various types, differentiated by the specific blockchain they support and the graph model types they employ. This versatility allows Miners to handle a diverse range of data requests, catering to the unique requirements of different blockchain networks and analytics demands. By aligning their capabilities with the graph models, Miners ensure that validators have access to the precise data needed, facilitating accurate and efficient data validation and analysis within the blockchain insights subnet.
+- **Subtensor:** Establishes the rules for data exchange between miners and validators, ensuring consistency and effective communication within the Bittensor network.
 
-#### PROTOCOL 
-- The protocol within the blockchain insights subnet is a set of rules facilitating data exchange between miners and validators. It allows miners to serve data in response to queries originating from validators, APIs, or other subnets. This protocol outlines the specific data contract, which includes the structure and format of the data to be exchanged, ensuring consistency and effective communication within the network. The protocol's design is crucial for maintaining the integrity and efficiency of data transfer in the subnet.
+- **Validator:** Scores, organizes, and ranks miners, ensuring the subnet's data integrity and efficiency, and routing queries appropriately.
 
-#### Validator
-- Within the blockchain insights subnet, the role of the validator is multifaceted. Validators act as a routing layer, directing queries between the API, subnets, and miners. They are responsible for organizing miners into groups based on their area of blockchain specialization and the types of graph models they handle. Additionally, validators rank miners by the accuracy and performance of their data contributions. This ranking is key to maintaining the subnet's standard for data quality and efficiency, ensuring the reliability of the insights provided. Through these activities, validators uphold the subnet's data integrity and streamline the flow of information.
+- **Validator API:** Provides a gateway for executing user prompts (questions) that LLM transforms into Cypher and SQL queries, supporting both predefined and custom queries for comprehensive data analysis.
 
-#### Miner's Registry
-- The Miner's Registry is a database residing on the validator's side within the blockchain insights subnet. Its primary function is to keep track of the various miners, organizing them by the specific blockchain networks they support and the graph models they are capable of handling. This organization enables validators to efficiently manage and allocate data requests to the appropriate miners based on their specialties, ensuring that the data served is relevant and up to the validators' requirements for accuracy and performance. The Miner's Registry is a critical component in maintaining the integrity of the subnet's operations, enabling a structured and systematic approach to handling the flow of blockchain data.
+- **Datasets:** We provide miners access to organic users prompts with the answers and the similarity score so they can use these to improve their work on the LLM-ENGINE.
 
-#### Blockchair API
-- The Blockchair API is a search and analytics engine that provides access to data across 17 blockchains, supporting complex queries for detailed analysis. It is used within the blockchain insights subnet to validate miner outputs, ensuring data accuracy and integrity.
+- **Chat API:** Provides an API to access the subnet data and develop any application, including Chat UI [Chat-API Documentation](https://chain-insights-ai-chat-api-prod.azurewebsites.net/docs).
 
-#### API
-- The API in the blockchain insights subnet serves as a gateway for executing Cypher queries on the data provided by miners. Requests made through the API are routed by the validator to the appropriate miners based on their registered capabilities in the Miner's Registry. This ensures that queries are handled efficiently and by the most suitable data source. The API offers a range of predefined queries for common tasks and analytics, as well as a Cypher endpoint that allows users to execute custom queries. This dual functionality facilitates both standard and bespoke data analysis, making the API a versatile tool for accessing and interrogating the wealth of information within the subnet.
+- **Chat UI:** Blockchain Insights developed a Chat UI using the Chat API with an augmented experience for displaying complex and interactive graphs, flow of funds, and relationships between nodes to enhance the user experience.
 
-#### SUBNETS
-- In the blockchain insights subnet, subnets represent interconnected segments of the broader Bittensor network. Each subnet has the capability to query the blockchain insights subnet for specific data and insights. These subnets facilitate specialized interactions and data exchanges within the network, allowing for targeted analytics and information retrieval tailored to their unique requirements.
+## Market
 
-#### Query Studio
-- Query Studio is a WPF (Windows Presentation Foundation) analytical application designed for end users to perform queries against the data served by miners. It provides a user interface that allows for the execution of complex queries, facilitating the analysis and visualization of blockchain data directly on the Windows platform.
----
+While the general population that wants to learn more about blockchain or wants to have a detailed explanation of transactions, find anomalies, or use any of the advanced algorithms provided by the system, crypto enthusiasts can use the ChatApp to interact with the LLM to answer any questions they have.
+
+In particular, businesses, regulatory agencies, banks, investment firms, investors, traders, DeFi apps, crypto wallets, blockchain explorers, exchanges, and anyone in the crypto and blockchain industry can use this simple tool to find answers in seconds to any questions.
+
+### Validator API
+
+The API provides all the functionalities of the subnet and is accessible through the Validator API gateway.
+
+### CHAT API
+
+The API is also accessible by Blockchain Insights [Chat-API Documentation](https://chain-insights-ai-chat-api-prod.azurewebsites.net/docs). Contact [Blockchain Insights](https://www.chain-insights.ai/) to obtain an API KEY.
+
+### CHAT UI for Subnet 15
+
+The Blockchain Insight team has developed a Chat UI specialized and enhanced the user experience by providing interactive graphs with augmented details.
+
+A free tier is offered to anyone [Chain Chat AI](https://chat.chain-insights.ai/).
+
+#### White Label License
+
+Validators and resellers can contract Blockchain Insights to get a White Label license for the Web chat UI and provide services to their clients. The Chat UI Web app developed by the team offers better graphics and fund flow diagrams with added information that improves the user experience and includes the latest team developments.
+
+## Development Roadmap
+
+The development of the Blockchain Insights Subnet is organized into four main streams, each with specific objectives and milestones:
+
+- **Subnet**
+- **Blockchain Integrations**
+- **LLM Intelligence**
+- **User Experience**
+
+### Milestones:
+
+Every month we release a major version:
+
+- **Version 1.x**
+  - [X] Miners Installation
+  - [X] Validators with Synthetic Queries
+  - [X] Bitcoin Graph Index on Memgraph
+
+- **Version 2.0**
+  - [X] Launch the subnet with support for the Bitcoin blockchain.
+  - [X] Develop and integrate the funds flow graph model for Bitcoin data analysis.
+  - [X] Cross Validation with Bitcoin Node and Graph Index
+
+- **Version 2.1**
+  - [X] Improvement of scoring mechanism
+  - [X] PageRank Queries
+  
+- **Version 2.2 (July 2024)**
+  - [X] Improve validator scoring and weighting mechanisms.
+    - [X] Benchmarks
+    - [X] Uptime
+    - [X] Data Integrity check with Cypher Queries
+  - [X] Launch a public API for basic queries.
+  - [X] Introduce LLM Prompt Engine using Langchain.
+  - [X] Bitcoin Balance Indexer on PostgreSQL
+  - [X] CHAT UI Beta Release
+
+- **Version 2.3 (August 2024)**
+  - [X] Enhance documentation and upgrade infrastructure.
+  - [X] LLM-ENGINE Template for Miners AI R&D challenges
+  - [X] EVM Indexer Template
+  - [X] Validator API to query Miners with LLM Prompts
+  - [X] MVP Public Release of [chat.chain-insights.ai](https://chat.chain-insights.ai/) UI
+  - [X] MVP Public Release of [Chat APIs](https://chain-insights-ai-chat-api-prod.azurewebsites.net/docs)
+
+- **Version 3.0 (September 2024)**
+  - [X] Miners LLM-ENGINE Challenges AI R&D Documentation
+  - [ ] Miners INDEXER Challenge R&D Documentation
+  - [ ] Add support for EVM (Ethereum) Blockchain Layer 1 and Layer 2.
+  - [ ] Expand public API functionalities with advanced algorithms.
+  - [ ] Validator Proof-of-Inference (ZK-ML) & Bearer Scoring
+  - [ ] Receipt system for query LLM response validation.
+
+- **Version X.X**
+  - [X] Live Streaming Template
+  
+
+## Installation & Configuration
+
+### [Validator & Miners Installation](https://github.com/blockchain-insights/blockchain-data-subnet-ops)
+
+Since there are many elements required to perform Mining or Validating, we created a repository that contains the installation and operational scripts with Docker Compose containers that are maintained by the Blockchain Insights Subnet 15 DevOps team. Visit the [Blockchain Data Subnet Ops](https://github.com/blockchain-insights/blockchain-data-subnet-ops) repository.
+
+**These include scripts with the already created Docker Compose YAML with required dependencies and environment variables:**
+- Docker Compose installation instructions
+- Bitcoin Node
+- Memgraph Graph Database Server
+- Indexers (Bitcoin and EVM)
+- Subtensor Node (Bittensor)
+- Miners/Validator scripts for communicating with the Bittensor blockchain.
+- LLM-ENGINE
+
+### [Miners LLM-ENGINE installation](https://github.com/blockchain-insights/blockchain-data-subnet-llm-engine)
+
+The [Blockchain LLM-ENGINE](https://github.com/blockchain-insights/blockchain-data-subnet-llm-engine) repository contains the basic template of the LLM-ENGINE that miners will use to send users queries (prompts). Miners can improve this engine by conducting Research & Development (R&D) to enhance the AI LLM's ability to respond accurately to user prompts.
+
+### [Validators API Installation](https://github.com/blockchain-insights/blockchain-data-subnet-validator-api)
+
+The [Blockchain Validator API](https://github.com/blockchain-insights/blockchain-data-subnet-validator-api) repository contains the API for validators to provide access to users for the subnet's functionalities and resources. This module can be used and modified by validators to offer access to the subnet's capabilities.
 
 ## License
+
 This repository is licensed under the MIT License.
+
 ```text
-# The MIT License (MIT)
-# Copyright © 2023 Yuma Rao
+The MIT License (MIT)
+© 2023 Yuma Rao
 
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-# and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-# the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-# THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-```
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  

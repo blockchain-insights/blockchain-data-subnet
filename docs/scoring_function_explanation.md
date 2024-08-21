@@ -25,10 +25,11 @@ This formula encapsulates the essence of our scoring mechanism, offering a balan
 
 Currently, the weights are as follows:
 
-- $(w_{1} = 72)$: Block Height Coverage
-- $(w_{2} = 5)$: Recency of Block
-- $(w_{3} = 16)$: Response Time
-- $(w_{4} = 2)$: Weight Based on the Mined Blockchain (bitcoin, ethereum, etc.)
+- $(w_{1} = 15)$: Block Height Coverage
+- $(w_{2} = 25)$: Recency of Block
+- $(w_{3} = 10)$: Response Time
+- $(w_{4} = 2)$ : Weight Based on the Mined Blockchain (bitcoin, ethereum, etc.)
+- $(w_{5} = 49)$: Uptime
 
 In other words, to achieve the highest possible score, a miner should index a broad range of recent blocks from a significant blockchain (such as bitcoin) and respond promptly.
 
@@ -39,20 +40,32 @@ To uphold decentralization within our network, we've established the following s
 Any participant meeting the following criteria will receive a score of 0:
 
 - Usage of an IP address by more than 9 miners
-- Usage of a memgraph instance by more than 9 miners
 - Usage of a cold key by more than 9 miners
 
 As our subnet expands to encompass other blockchains, we're devising a gradual reduction in this number to facilitate an increase in the number of memgraph instances.
 
-## Important Notes:
+## Score 0 if one of theses metrics are not met:
 
 It's crucial to be aware that:
 
-- A range of blocks less than 400'000 will result in a score of 0.
+- A range of blocks less than 800'000 will result in a score of 0.
 
 - A timeout response will result in a score of 0.
 
+- Incorrect response to a query give a score of 0.
+
 - The weights and the minimum range of blocks can be modified as network capabilities increase
+
+## Uptime
+
+Uptime is calculated on the time that a miner answer a query of any type and gives an exact value to the query.
+
+Eachtime a miner timeout or gives an incorrect answer it's considered down and will be up only when the next query will not timeout and give a correct value
+
+An Average of the following metrics are averaged:
+- Uptime for the last 24 hours 
+- Uptime for the last week (7 days)
+- Uptime for the last Month (30 days)
 
 ## Deep Dive
 
@@ -110,14 +123,17 @@ We understand the critical importance of fostering an evenly distributed miner i
 
 To achieve this, we are planning to integrate the following components into our incentive structure:
 
-- **Memgraph exact compute time:** This metric will gauge the precise computational efficiency of miners.
-- **Hardware metrics from NVIDIA cuGraph:** By incorporating hardware-specific data, we can assess the performance of miners in relation to their hardware capabilities.
-- **Responses to organic queries:** Evaluating how effectively miners respond to real-world queries will provide valuable insights into their performance.
-- **Dynamic weighting for scoring function:** Introducing adaptability into our scoring mechanism will allow for more nuanced evaluations.
+- [ ] **Weights scoring for Organic Queries:** Organic queries will have 2x the weights of syntheric queries by integrating a receipt system that validators sign for organic queries.
+- [ ] **Hardware metrics:** By incorporating hardware-specific data, we can assess the performance of miners in relation to their hardware capabilities.
+- [ ] **Responses quality to organic queries:** Evaluating how effectively miners respond to real-world queries will provide valuable insights into their exactitude.
+- [ ] **Dynamic weighting for scoring function:** Introducing adaptability into our scoring mechanism will allow for more nuanced evaluations.
 
-Additionally, with the forthcoming introduction of LLM (Large Language Models) capabilities on the miner side, we anticipate further enhancements to our scoring function, incorporating stochastic features such as:
+### LLM (Large Language Model)
 
-- **Quality of query response explanations:** Assessing the clarity and depth of explanations provided alongside query responses.
-- **LLM capability to answer user queries:** Leveraging multilingual and complexity-handling capabilities to improve response quality.
+Additionally, with the new introduction of LLM (Large Language Models) capabilities on the miner side, we anticipate further enhancements to our scoring function, incorporating stochastic features such as:
+
+- [ ] **Quality of query response explanations:** Assessing the clarity and depth of explanations provided alongside query responses.
+- [ ] **LLM capability to answer user queries:** Leveraging multilingual and complexity-handling capabilities to improve response quality.
+- [ ] **Scoring Tokens/sec:** Giving an indication of the performance of the miner and quality of the API used for the LLM Prompting and response.
 
 By integrating these elements, we aim to create a robust and comprehensive incentivization framework that drives continual improvement in miner performance and fosters a vibrant and competitive ecosystem within our subnet.
